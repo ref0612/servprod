@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Portal de Producción · Análisis Integral</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&family=Inter:wght@400;500;600;700&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0d0f17;--ink2:#3a3d52;--ink3:#7a7e97;
+  --bg:#f2f1ee;--surface:#ffffff;--surface2:#f9f8f6;
+  --border:#e2e0db;--border2:#d0cec8;
+  --accent:#1a3cff;--accent-dim:#eef0ff;
+  --green:#0a7c5c;--green-dim:#e6f5f0;
+  --amber:#b45309;--amber-dim:#fef3e2;
+  --red:#c42b2b;--red-dim:#fef2f2;
+  --teal:#0891b2;--teal-dim:#ecfeff;
+  --r:8px;--r2:14px;
+  font-family:'Inter',system-ui,sans-serif;
+}
+body{background:var(--bg);color:var(--ink);min-height:100vh}
+
+/* ── UPLOAD SCREEN ── */
+#upload-screen{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:100vh;padding:40px 24px;text-align:center;
+}
+#upload-screen h1{
+  font-family:'Fraunces',serif;font-weight:700;font-size:clamp(28px,5vw,52px);
+  line-height:1.1;letter-spacing:-0.5px;margin-bottom:12px;
+}
+#upload-screen h1 em{font-style:italic;color:var(--accent)}
+#upload-screen p{color:var(--ink2);font-size:15px;max-width:440px;margin-bottom:40px;line-height:1.6}
+.drop-zone{
+  width:100%;max-width:480px;border:2px dashed var(--border2);border-radius:var(--r2);
+  padding:48px 32px;cursor:pointer;transition:all .2s;background:var(--surface);
+  position:relative;
+}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:var(--accent-dim)}
+.drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop-icon{font-size:40px;margin-bottom:16px;display:block}
+.drop-zone strong{font-size:16px;font-weight:600;color:var(--ink);display:block;margin-bottom:6px}
+.drop-zone span{font-size:13px;color:var(--ink3)}
+.progress-bar-wrap{width:100%;max-width:480px;margin-top:20px;display:none}
+.progress-bar-bg{height:6px;background:var(--border);border-radius:100px;overflow:hidden}
+.progress-bar-fill{height:6px;background:var(--accent);border-radius:100px;width:0;transition:width .1s}
+#upload-status{margin-top:12px;font-size:13px;color:var(--ink3);text-align:center}
+.schema-hint{
+  margin-top:32px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--r);padding:16px 20px;max-width:480px;text-align:left;
+}
+.schema-hint p{font-size:12px;color:var(--ink3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.schema-hint code{font-family:'DM Mono',monospace;font-size:11px;color:var(--ink2);
+  background:var(--bg);padding:2px 6px;border-radius:4px;margin:2px;display:inline-block}
+
+/* ── APP ── */
+#app{display:none}
+.header{
+  background:var(--ink);color:#fff;padding:0 32px;height:56px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+}
+.header-brand{display:flex;align-items:center;gap:12px}
+.header-brand h1{font-family:'Fraunces',serif;font-size:18px;font-weight:700;letter-spacing:-.3px}
+.header-brand .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.header-meta{font-size:11px;color:rgba(255,255,255,.5);display:flex;gap:16px;align-items:center}
+.reload-btn{
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;
+  padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;transition:all .15s;
+}
+.reload-btn:hover{background:rgba(255,255,255,.2)}
+
+/* KPIs */
+.kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border)}
+.kpi-cell{background:var(--surface);padding:16px 20px}
+.kpi-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3)}
+.kpi-val{font-size:22px;font-weight:700;color:var(--ink);letter-spacing:-1px;margin-top:3px;font-variant-numeric:tabular-nums}
+.kpi-sub{font-size:11px;color:var(--ink3);margin-top:2px}
+.kpi-val.green{color:var(--green)}
+.kpi-val.blue{color:var(--accent)}
+
+/* TABS */
+.tabs-bar{
+  padding:0 32px;display:flex;gap:0;border-bottom:1px solid var(--border);
+  background:var(--surface);position:sticky;top:0;z-index:20;overflow-x:auto;
+}
+.tab-btn{
+  padding:12px 20px;font-size:13px;font-weight:500;color:var(--ink3);border:none;
+  background:none;cursor:pointer;border-bottom:2px solid transparent;
+  transition:all .15s;margin-bottom:-1px;white-space:nowrap;
+}
+.tab-btn.active{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+.tab-btn:hover:not(.active){color:var(--ink)}
+
+/* TOOLBAR */
+.toolbar{padding:12px 32px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--surface2);border-bottom:1px solid var(--border)}
+.search-wrap{position:relative;flex:1;min-width:180px;max-width:320px}
+.search-wrap input{
+  width:100%;border:1px solid var(--border);border-radius:var(--r);
+  padding:7px 10px 7px 32px;font-size:13px;background:var(--surface);
+  color:var(--ink);outline:none;transition:border-color .15s;
+}
+.search-wrap input:focus{border-color:var(--accent)}
+.search-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:14px}
+select{
+  border:1px solid var(--border);border-radius:var(--r);
+  padding:7px 24px 7px 9px;font-size:13px;background:var(--surface);
+  color:var(--ink);cursor:pointer;outline:none;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237a7e97'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 8px center;
+}
+.btn{
+  border:1px solid var(--border);background:var(--surface);border-radius:var(--r);
+  padding:6px 12px;font-size:12px;font-weight:500;cursor:pointer;color:var(--ink);
+  display:flex;align-items:center;gap:5px;transition:all .15s;white-space:nowrap;
+}
+.btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.count-tag{font-size:12px;color:var(--ink3);margin-left:auto}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;padding:0 32px 16px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{
+  padding:8px 12px;text-align:left;font-size:10px;font-weight:700;
+  letter-spacing:.6px;text-transform:uppercase;color:var(--ink3);
+  border-bottom:1px solid var(--border);background:var(--surface2);
+  cursor:pointer;user-select:none;white-space:nowrap;
+}
+thead th:hover{color:var(--accent)}
+thead th.sorted{color:var(--accent)}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s;cursor:pointer}
+tbody tr:hover{background:var(--accent-dim)}
+tbody td{padding:9px 12px;vertical-align:middle}
+.svc-name{font-weight:600;font-size:13px;color:var(--ink)}
+.svc-seq{font-size:11px;color:var(--ink3);margin-top:2px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.num{font-weight:600;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.bar-wrap{display:flex;align-items:center;gap:6px}
+.bar-bg{flex:1;background:var(--border);border-radius:100px;height:4px;min-width:40px}
+.bar-fill{height:4px;border-radius:100px;background:var(--accent)}
+.bar-teal{background:var(--teal)}
+.no-data{text-align:center;padding:48px;color:var(--ink3);font-size:13px}
+
+/* PAGINATION */
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:10px 32px 20px;font-size:12px;color:var(--ink3)}
+.pg-btns{display:flex;gap:4px}
+.pg-btn{border:1px solid var(--border);background:var(--surface);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--ink)}
+.pg-btn:hover{background:var(--accent-dim);color:var(--accent)}
+.pg-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pg-btn:disabled{opacity:.4;cursor:default}
+
+/* PANEL */
+.panel-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:50;backdrop-filter:blur(2px)}
+.panel-overlay.open{display:block}
+.panel{
+  position:fixed;right:0;top:0;bottom:0;width:480px;background:var(--surface);
+  z-index:51;overflow-y:auto;box-shadow:-6px 0 40px rgba(0,0,0,.12);
+  transform:translateX(100%);transition:transform .25s ease;
+}
+.panel.open{transform:translateX(0)}
+.panel-head{
+  padding:18px 22px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+  position:sticky;top:0;background:var(--surface);z-index:1;
+}
+.panel-close{width:30px;height:30px;border:1px solid var(--border);border-radius:7px;background:none;cursor:pointer;font-size:16px;color:var(--ink3);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.panel-close:hover{background:var(--bg)}
+.panel-body{padding:18px 22px}
+.panel-kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}
+.pk{background:var(--surface2);border-radius:var(--r);padding:10px 14px;border:1px solid var(--border)}
+.pk-l{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3)}
+.pk-v{font-size:18px;font-weight:700;margin-top:3px;letter-spacing:-.5px}
+.sec-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);margin:16px 0 8px}
+.det-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)}
+.det-row:last-child{border-bottom:none}
+.dr-rank{font-size:10px;font-weight:700;color:var(--ink3);min-width:20px}
+.dr-name{font-size:12px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-bar-wrap{display:flex;align-items:center;gap:6px;min-width:130px}
+.dr-bar-bg{flex:1;background:var(--border);border-radius:100px;height:4px}
+.dr-bar-fill{height:4px;border-radius:100px;background:var(--teal)}
+.dr-val{font-size:11px;font-weight:700;min-width:65px;text-align:right;white-space:nowrap;color:var(--teal)}
+
+/* BRANCHES */
+.br-item{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);
+  margin:0 32px 10px;overflow:hidden;transition:box-shadow .15s;
+}
+.br-item:hover{box-shadow:0 2px 16px rgba(26,60,255,.07)}
+.br-head{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;gap:12px}
+.br-left{display:flex;align-items:center;gap:12px}
+.br-badge{background:var(--accent-dim);color:var(--accent);font-size:10px;font-weight:700;padding:3px 8px;border-radius:100px;min-width:36px;text-align:center}
+.br-name{font-size:14px;font-weight:700}
+.br-sub{font-size:11px;color:var(--ink3);margin-top:1px}
+.br-total{font-size:13px;font-weight:700;color:var(--teal)}
+.br-arrow{font-size:18px;color:var(--ink3);transition:transform .2s;flex-shrink:0}
+.br-arrow.open{transform:rotate(180deg)}
+.br-svc-list{border-top:1px solid var(--border);padding:0 18px 12px;display:none}
+.br-svc-list.open{display:block}
+.bsl-header{display:flex;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);padding:10px 0 6px;border-bottom:1px solid var(--border);gap:8px}
+.bsl-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.bsl-row:last-child{border-bottom:none}
+.bsl-i{min-width:22px;font-size:10px;color:var(--ink3);font-weight:700}
+.bsl-svc{flex:0 0 160px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bsl-seq{flex:1;color:var(--ink3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bsl-bar-bg{flex:0 0 70px;background:var(--border);border-radius:100px;height:4px}
+.bsl-bar-fill{height:4px;border-radius:100px;background:var(--teal)}
+.bsl-val{flex:0 0 75px;text-align:right;font-weight:700;color:var(--teal)}
+.bsl-pct{flex:0 0 36px;text-align:right;color:var(--ink3);font-size:10px}
+
+/* CHARTS */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 32px 32px}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:18px}
+.chart-card.full{grid-column:1/-1}
+.chart-card.third{grid-column:span 1}
+.chart-title{font-size:13px;font-weight:700;color:var(--ink)}
+.chart-sub{font-size:11px;color:var(--ink3);margin-bottom:14px;margin-top:2px}
+.chart-canvas-wrap{position:relative}
+
+/* INSIGHTS */
+.insights-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;padding:16px 32px 32px}
+.insight-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:20px}
+.insight-card.full{grid-column:1/-1}
+.insight-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px}
+.insight-sub{font-size:11px;color:var(--ink3);margin-bottom:16px}
+.insight-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.insight-row:last-child{border-bottom:none}
+.insight-name{font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.insight-val{font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);white-space:nowrap;margin-left:8px}
+.insight-badge{
+  font-size:10px;padding:2px 7px;border-radius:100px;font-weight:700;margin-left:6px;white-space:nowrap;
+}
+.badge-green{background:var(--green-dim);color:var(--green)}
+.badge-amber{background:var(--amber-dim);color:var(--amber)}
+.badge-blue{background:var(--accent-dim);color:var(--accent)}
+
+/* ROUTE MAP - sequence visualization */
+.seq-viz{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:8px 0}
+.seq-stop{
+  font-size:11px;padding:4px 10px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:100px;color:var(--ink2);white-space:nowrap;
+}
+.seq-arrow{color:var(--ink3);font-size:12px}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .kpi-row{grid-template-columns:repeat(3,1fr)}
+  .charts-grid,.insights-grid{grid-template-columns:1fr}
+  .chart-card.full,.insight-card.full{grid-column:span 1}
+  .br-item,.table-wrap,.toolbar,.pagination{padding-left:16px;padding-right:16px}
+  .panel{width:100%}
+  .bsl-seq{display:none}
+}
+@media(max-width:600px){
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .header{padding:0 16px}
+  .tabs-bar{padding:0 8px}
+}
+</style>
+</head>
+<body>
+
+<!-- ── UPLOAD SCREEN ── -->
+<div id="upload-screen">
+  <h1>Producción de<br><em>Servicios</em></h1>
+  <p>Cargá el reporte CSV de Ticket Simply para visualizar producción, secuencias de servicios y rendimiento por sucursal.</p>
+
+  <label class="drop-zone" id="drop-zone">
+    <span class="drop-icon">📂</span>
+    <strong>Arrastrá tu CSV aquí</strong>
+    <span>o hacé click para seleccionar archivo</span>
+    <input type="file" id="file-input" accept=".csv,.txt"/>
+  </label>
+
+  <div class="progress-bar-wrap" id="progress-wrap">
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+    <div id="upload-status">Procesando...</div>
+  </div>
+
+  <div class="schema-hint">
+    <p>Columnas requeridas en el CSV</p>
+    <code>Nombre del Servicio</code>
+    <code>Sucursal de Venta</code>
+    <code>Monto Produccion Total</code>
+    <code>Estado</code>
+    <code>N° Asiento</code>
+    <code>Origen</code>
+    <code>Destino</code>
+    <code>Punto de Embarque</code>
+  </div>
+</div>
+
+<!-- ── APP ── -->
+<div id="app">
+  <div class="header">
+    <div class="header-brand">
+      <div class="dot"></div>
+      <h1>Portal de Producción</h1>
+    </div>
+    <div class="header-meta">
+      <span id="hdr-archivo">—</span>
+      <span id="hdr-registros">—</span>
+      <button class="reload-btn" onclick="resetApp()">↩ Cargar otro</button>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi-cell"><div class="kpi-label">Producción Total</div><div class="kpi-val blue" id="kpi-prod">—</div><div class="kpi-sub">Monto neto CLP</div></div>
+    <div class="kpi-cell"><div class="kpi-label">Servicios activos</div><div class="kpi-val" id="kpi-svc">—</div><div class="kpi-sub">Servicios únicos</div></div>
+    <div class="kpi-cell"><div class="kpi-label">Sucursales</div><div class="kpi-val" id="kpi-br">—</div><div class="kpi-sub">Puntos de venta</div></div>
+    <div class="kpi-cell"><div class="kpi-label">Pasajes vendidos</div><div class="kpi-val" id="kpi-pax">—</div><div class="kpi-sub">Asientos (vendidos)</div></div>
+    <div class="kpi-cell"><div class="kpi-label">Tarifa promedio</div><div class="kpi-val green" id="kpi-avg">—</div><div class="kpi-sub">Por asiento</div></div>
+    <div class="kpi-cell"><div class="kpi-label">Cancelados</div><div class="kpi-val" id="kpi-cancel">—</div><div class="kpi-sub">% del total</div></div>
+  </div>
+
+  <div class="tabs-bar">
+    <button class="tab-btn active" data-tab="servicios">📋 Servicios</button>
+    <button class="tab-btn" data-tab="sucursales">🏪 Sucursales</button>
+    <button class="tab-btn" data-tab="graficos">📊 Gráficos</button>
+    <button class="tab-btn" data-tab="insights">💡 Insights</button>
+  </div>
+
+  <!-- TAB: SERVICIOS -->
+  <div id="tab-servicios">
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input id="svc-search" type="text" placeholder="Buscar servicio o ruta…"/>
+      </div>
+      <select id="svc-sort">
+        <option value="produccion">↓ Producción</option>
+        <option value="asientos">↓ Asientos</option>
+        <option value="promedio">↓ $/Asiento</option>
+        <option value="sucursales">↓ Sucursales</option>
+        <option value="nombre">A-Z Nombre</option>
+      </select>
+      <select id="svc-minprod">
+        <option value="0">Todos los montos</option>
+        <option value="10000000">+ $10M</option>
+        <option value="20000000">+ $20M</option>
+        <option value="40000000">+ $40M</option>
+      </select>
+      <button class="btn" id="dl-svc-xlsx">↓ Excel</button>
+      <button class="btn" id="dl-svc-csv">↓ CSV</button>
+      <span class="count-tag" id="svc-count"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th data-col="nombre">Servicio</th>
+          <th data-col="secuencia">Secuencia</th>
+          <th data-col="produccion" class="sorted" style="text-align:right">Producción ↓</th>
+          <th data-col="promedio" style="text-align:right">$/Asiento</th>
+          <th data-col="asientos" style="text-align:right">Asientos</th>
+          <th data-col="sucursales" style="text-align:right">Sucursales</th>
+          <th>Participación</th>
+        </tr></thead>
+        <tbody id="svc-tbody"></tbody>
+      </table>
+      <div id="svc-nodata" class="no-data" style="display:none">Sin resultados</div>
+    </div>
+    <div class="pagination">
+      <span id="svc-pginfo"></span>
+      <div class="pg-btns" id="svc-pgbtns"></div>
+    </div>
+  </div>
+
+  <!-- TAB: SUCURSALES -->
+  <div id="tab-sucursales" style="display:none">
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input id="br-search" type="text" placeholder="Buscar sucursal…"/>
+      </div>
+      <select id="br-sort">
+        <option value="total">↓ Total vendido</option>
+        <option value="n_svc">↓ Nº servicios</option>
+        <option value="promedio">↓ Ticket promedio</option>
+        <option value="nombre">A-Z Nombre</option>
+      </select>
+      <button class="btn" id="dl-br-xlsx">↓ Excel Sucursales</button>
+      <span class="count-tag" id="br-count"></span>
+    </div>
+    <div id="br-list" style="padding-bottom:32px"></div>
+  </div>
+
+  <!-- TAB: GRÁFICOS -->
+  <div id="tab-graficos" style="display:none">
+    <div class="charts-grid">
+      <div class="chart-card full">
+        <div class="chart-title">Top 20 servicios por producción</div>
+        <div class="chart-sub">Monto total en millones CLP · click para ver detalle</div>
+        <div class="chart-canvas-wrap" style="height:420px"><canvas id="chart-top20"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Top 20 sucursales por producción</div>
+        <div class="chart-sub">Producción acumulada por punto de venta</div>
+        <div class="chart-canvas-wrap" style="height:380px"><canvas id="chart-branches"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Distribución por rango de producción</div>
+        <div class="chart-sub">Cantidad de servicios por segmento</div>
+        <div class="chart-canvas-wrap" style="height:280px"><canvas id="chart-dist"></canvas></div>
+      </div>
+      <div class="chart-card full">
+        <div class="chart-title">Concentración de ventas por sucursal</div>
+        <div class="chart-sub">Top 30 sucursales · % de la producción total</div>
+        <div class="chart-canvas-wrap" style="height:300px"><canvas id="chart-conc"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: INSIGHTS -->
+  <div id="tab-insights" style="display:none">
+    <div class="insights-grid" id="insights-content">
+    </div>
+  </div>
+</div>
+
+<!-- PANEL LATERAL -->
+<div class="panel-overlay" id="overlay"></div>
+<div class="panel" id="panel">
+  <div class="panel-head">
+    <div style="min-width:0">
+      <div id="panel-title" style="font-size:15px;font-weight:700;color:var(--ink)"></div>
+      <div id="panel-seq-viz"></div>
+    </div>
+    <button class="panel-close" id="panel-close">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="panel-kpis">
+      <div class="pk"><div class="pk-l">Producción</div><div class="pk-v" id="pk-prod" style="color:var(--accent)"></div></div>
+      <div class="pk"><div class="pk-l">Asientos</div><div class="pk-v" id="pk-seats"></div></div>
+      <div class="pk"><div class="pk-l">$/Asiento</div><div class="pk-v" id="pk-avg" style="color:var(--green)"></div></div>
+      <div class="pk"><div class="pk-l">Sucursales</div><div class="pk-v" id="pk-nbr"></div></div>
+    </div>
+    <div class="sec-label">Venta por sucursal</div>
+    <div id="panel-branches"></div>
+  </div>
+</div>
+
+<script>
+// ── DATA ─────────────────────────────────────────────────────
+let ALL_SERVICES = [], ALL_BRANCHES = [], MAX_SVC_PROD = 1, TOTAL_PROD = 0;
+let FILE_NAME = '', FILE_ROWS = 0;
+
+// ── FORMATS ──────────────────────────────────────────────────
+const fmt = n => '$' + Math.round(n).toLocaleString('es-CL');
+function fmtM(n){
+  if(n >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+  if(n >= 1e6) return '$' + (n/1e6).toFixed(1) + 'M';
+  return '$' + Math.round(n).toLocaleString('es-CL');
+}
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// ── CSV PARSER ───────────────────────────────────────────────
+function parseCSV(text){
+  const lines = text.split('\n');
+  if(lines.length < 2) return [];
+  const headers = parseCSVRow(lines[0]);
+  const rows = [];
+  for(let i = 1; i < lines.length; i++){
+    if(!lines[i].trim()) continue;
+    const vals = parseCSVRow(lines[i]);
+    const row = {};
+    headers.forEach((h,j) => row[h.trim()] = (vals[j]||'').trim());
+    rows.push(row);
+  }
+  return rows;
+}
+function parseCSVRow(line){
+  const result = [];
+  let cur = '', inQ = false;
+  for(let i = 0; i < line.length; i++){
+    const c = line[i];
+    if(c === '"'){ inQ = !inQ; continue; }
+    if(c === ',' && !inQ){ result.push(cur); cur = ''; continue; }
+    cur += c;
+  }
+  result.push(cur);
+  return result;
+}
+
+// ── PROCESS RAW ROWS ─────────────────────────────────────────
+function processRows(rows){
+  FILE_ROWS = rows.length;
+
+  // Build service map: nombre → { produccion, asientos, sucursales:{}, secuencia, cancelados }
+  const svcMap = new Map();
+  const brMap = new Map(); // sucursal → { total, servicios:{nombre→val} }
+  let totalProd = 0, totalPax = 0, totalCancel = 0;
+
+  for(const r of rows){
+    const nombre = r['Nombre del Servicio'] || '(sin nombre)';
+    const sucursal = r['Sucursal de Venta'] || '(sin sucursal)';
+    const estado = r['Estado'] || '';
+    const monto = parseFloat(String(r['Monto Produccion Total']||'0').replace(/[^0-9.-]/g,'')) || 0;
+    const asiento = parseInt(r['N° Asiento']||'0') || 0;
+
+    // Secuencia from "Punto de Embarque" fallback to "Origen → Destino"
+    // We'll reconstruct sequence from the service's raw data (we collect stops in order)
+    // For now use "Origen → Destino" as simplification
+    const origen = r['Origen'] || '';
+    const destino = r['Destino'] || '';
+
+    const isCanceled = estado.toLowerCase().includes('cancel');
+    if(isCanceled) totalCancel++;
+
+    // Only count non-cancelled for production
+    if(!isCanceled && monto > 0){
+      totalProd += monto;
+      if(asiento > 0) totalPax++;
+
+      // service
+      if(!svcMap.has(nombre)){
+        svcMap.set(nombre, { nombre, produccion:0, asientos:0, sucursales:new Map(), origen, destino });
+      }
+      const s = svcMap.get(nombre);
+      s.produccion += monto;
+      s.asientos++;
+      s.sucursales.set(sucursal, (s.sucursales.get(sucursal)||0) + monto);
+
+      // branch
+      if(!brMap.has(sucursal)) brMap.set(sucursal, { sucursal, total:0, servicios:new Map() });
+      const b = brMap.get(sucursal);
+      b.total += monto;
+      b.servicios.set(nombre, (b.servicios.get(nombre)||0) + monto);
+    }
+  }
+
+  // Convert to arrays
+  ALL_SERVICES = Array.from(svcMap.values()).map(s => ({
+    ...s,
+    sucursales: Array.from(s.sucursales.entries()).sort((a,b)=>b[1]-a[1])
+  })).sort((a,b) => b.produccion - a.produccion);
+
+  ALL_BRANCHES = Array.from(brMap.values()).map(b => ({
+    ...b,
+    servicios: Array.from(b.servicios.entries()).sort((a,b)=>b[1]-a[1])
+  })).sort((a,b) => b.total - a.total);
+
+  TOTAL_PROD = totalProd;
+  MAX_SVC_PROD = ALL_SERVICES.length ? ALL_SERVICES[0].produccion : 1;
+
+  return { totalProd, totalPax, totalCancel };
+}
+
+// ── FILE HANDLING ─────────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+function handleFile(file){
+  if(!file) return;
+  FILE_NAME = file.name;
+  const wrap = document.getElementById('progress-wrap');
+  const fill = document.getElementById('progress-fill');
+  const status = document.getElementById('upload-status');
+  wrap.style.display = 'block';
+  status.textContent = 'Leyendo archivo…';
+  fill.style.width = '10%';
+
+  const reader = new FileReader();
+  reader.onprogress = e => { if(e.lengthComputable) fill.style.width = (10 + 60*(e.loaded/e.total)) + '%'; };
+  reader.onload = e => {
+    fill.style.width = '75%';
+    status.textContent = 'Procesando datos…';
+    setTimeout(() => {
+      try{
+        const rows = parseCSV(e.target.result);
+        fill.style.width = '90%';
+        const stats = processRows(rows);
+        fill.style.width = '100%';
+        status.textContent = `✓ ${rows.length.toLocaleString('es-CL')} registros procesados`;
+        setTimeout(() => launchApp(stats), 400);
+      } catch(err){
+        status.textContent = '✗ Error al procesar: ' + err.message;
+        fill.style.background = 'var(--red)';
+      }
+    }, 50);
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function launchApp(stats){
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  updateKPIs(stats);
+  svcApply();
+  brApply();
+  buildInsights();
+}
+
+function resetApp(){
+  document.getElementById('upload-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('progress-wrap').style.display = 'none';
+  document.getElementById('progress-fill').style.width = '0';
+  document.getElementById('file-input').value = '';
+  chartsDrawn = false;
+  ['chart-top20','chart-branches','chart-dist','chart-conc'].forEach(id => {
+    const c = Chart.getChart(id); if(c) c.destroy();
+  });
+  ALL_SERVICES = []; ALL_BRANCHES = [];
+}
+
+// ── KPIs ─────────────────────────────────────────────────────
+function updateKPIs(stats){
+  document.getElementById('hdr-archivo').textContent = FILE_NAME;
+  document.getElementById('hdr-registros').textContent = FILE_ROWS.toLocaleString('es-CL') + ' registros';
+  document.getElementById('kpi-prod').textContent = fmtM(stats.totalProd);
+  document.getElementById('kpi-svc').textContent = ALL_SERVICES.length.toLocaleString('es-CL');
+  document.getElementById('kpi-br').textContent = ALL_BRANCHES.length.toLocaleString('es-CL');
+  document.getElementById('kpi-pax').textContent = stats.totalPax.toLocaleString('es-CL');
+  const avg = stats.totalPax ? Math.round(stats.totalProd / stats.totalPax) : 0;
+  document.getElementById('kpi-avg').textContent = fmt(avg);
+  const pctCancel = FILE_ROWS ? Math.round(stats.totalCancel / FILE_ROWS * 100) : 0;
+  document.getElementById('kpi-cancel').textContent = pctCancel + '%';
+}
+
+// ── TABS ─────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    ['servicios','sucursales','graficos','insights'].forEach(t =>
+      document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none'
+    );
+    if(tab === 'graficos') renderCharts();
+    if(tab === 'sucursales') brApply();
+  });
+});
+
+// ── SERVICIOS ─────────────────────────────────────────────────
+let svcFiltered = [], svcSortCol = 'produccion', svcSortDir = -1, svcPage = 1;
+const SVC_PAGE = 40;
+
+function svcApply(){
+  const q = document.getElementById('svc-search').value.toLowerCase();
+  const minP = +document.getElementById('svc-minprod').value;
+  const sb = document.getElementById('svc-sort').value;
+
+  svcFiltered = ALL_SERVICES.filter(s =>
+    (!q || s.nombre.toLowerCase().includes(q) || (s.origen+' '+s.destino).toLowerCase().includes(q)) &&
+    s.produccion >= minP
+  );
+
+  if(sb === 'produccion') svcFiltered.sort((a,b) => b.produccion - a.produccion);
+  else if(sb === 'asientos') svcFiltered.sort((a,b) => b.asientos - a.asientos);
+  else if(sb === 'promedio') svcFiltered.sort((a,b) => (b.asientos?b.produccion/b.asientos:0) - (a.asientos?a.produccion/a.asientos:0));
+  else if(sb === 'sucursales') svcFiltered.sort((a,b) => b.sucursales.length - a.sucursales.length);
+  else svcFiltered.sort((a,b) => a.nombre.localeCompare(b.nombre));
+
+  svcPage = 1;
+  svcRender();
+}
+
+function svcRender(){
+  const total = svcFiltered.length;
+  const start = (svcPage-1) * SVC_PAGE;
+  const slice = svcFiltered.slice(start, start + SVC_PAGE);
+  const tbody = document.getElementById('svc-tbody');
+  tbody.innerHTML = '';
+  document.getElementById('svc-nodata').style.display = total === 0 ? '' : 'none';
+  document.getElementById('svc-count').textContent = total + ' servicio' + (total !== 1 ? 's' : '');
+
+  slice.forEach((s, i) => {
+    const avg = s.asientos ? Math.round(s.produccion / s.asientos) : 0;
+    const pct = Math.round(s.produccion / MAX_SVC_PROD * 100);
+    const pctTotal = TOTAL_PROD ? ((s.produccion / TOTAL_PROD * 100).toFixed(1) + '%') : '—';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><div class="svc-name">${start+i+1}. ${esc(s.nombre)}</div></td>
+      <td><div class="svc-seq" title="${esc(s.origen)} → ${esc(s.destino)}">${esc(s.origen)}${s.destino ? ' → ' + esc(s.destino) : ''}</div></td>
+      <td class="num">${fmtM(s.produccion)}</td>
+      <td class="num" style="color:var(--green)">${avg ? fmt(avg) : '—'}</td>
+      <td class="num">${s.asientos.toLocaleString('es-CL')}</td>
+      <td class="num">${s.sucursales.length}</td>
+      <td><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div><span style="font-size:10px;color:var(--ink3);min-width:32px;text-align:right">${pctTotal}</span></div></td>`;
+    tr.addEventListener('click', () => openPanel(s));
+    tbody.appendChild(tr);
+  });
+
+  renderPg('svc-pginfo','svc-pgbtns', total, svcPage, SVC_PAGE, p => { svcPage = p; svcRender(); });
+}
+
+document.getElementById('svc-search').addEventListener('input', svcApply);
+document.getElementById('svc-sort').addEventListener('change', svcApply);
+document.getElementById('svc-minprod').addEventListener('change', svcApply);
+document.querySelectorAll('thead th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if(col === svcSortCol) svcSortDir *= -1; else { svcSortCol = col; svcSortDir = -1; }
+    document.querySelectorAll('thead th').forEach(t => { t.classList.remove('sorted'); t.textContent = t.textContent.replace(/ [↑↓]$/,''); });
+    th.classList.add('sorted');
+    th.textContent = th.textContent + (svcSortDir === -1 ? ' ↓' : ' ↑');
+    svcApply();
+  });
+});
+
+// ── PANEL ─────────────────────────────────────────────────────
+function openPanel(s){
+  document.getElementById('panel-title').textContent = s.nombre;
+
+  // Sequence visualization
+  const stops = [];
+  if(s.origen) stops.push(s.origen);
+  if(s.destino && s.destino !== s.origen) stops.push(s.destino);
+  const seqEl = document.getElementById('panel-seq-viz');
+  if(stops.length){
+    seqEl.className = 'seq-viz';
+    seqEl.innerHTML = stops.map((st,i) =>
+      `<span class="seq-stop">${esc(st)}</span>` + (i < stops.length-1 ? '<span class="seq-arrow">→</span>' : '')
+    ).join('');
+  } else {
+    seqEl.innerHTML = '';
+  }
+
+  document.getElementById('pk-prod').textContent = fmtM(s.produccion);
+  document.getElementById('pk-seats').textContent = s.asientos.toLocaleString('es-CL');
+  const avg = s.asientos ? Math.round(s.produccion / s.asientos) : 0;
+  document.getElementById('pk-avg').textContent = avg ? fmt(avg) : '—';
+  document.getElementById('pk-nbr').textContent = s.sucursales.length;
+
+  const container = document.getElementById('panel-branches');
+  container.innerHTML = '';
+  const maxB = s.sucursales.length ? s.sucursales[0][1] : 1;
+  s.sucursales.forEach(([name, val], i) => {
+    const pct = Math.round(val / maxB * 100);
+    const pctTotal = Math.round(val / s.produccion * 100);
+    const div = document.createElement('div');
+    div.className = 'det-row';
+    div.innerHTML = `
+      <span class="dr-rank">${i+1}</span>
+      <span class="dr-name" title="${esc(name)}">${esc(name)}</span>
+      <div class="dr-bar-wrap">
+        <div class="dr-bar-bg"><div class="dr-bar-fill" style="width:${pct}%"></div></div>
+        <span class="dr-val">${fmtM(val)}</span>
+      </div>
+      <span style="font-size:10px;color:var(--ink3);min-width:32px;text-align:right">${pctTotal}%</span>`;
+    container.appendChild(div);
+  });
+  if(!s.sucursales.length) container.innerHTML = '<p style="font-size:12px;color:var(--ink3)">Sin detalle por sucursal.</p>';
+
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('panel').classList.add('open');
+}
+document.getElementById('panel-close').onclick = closePanel;
+document.getElementById('overlay').onclick = closePanel;
+function closePanel(){
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('panel').classList.remove('open');
+}
+
+// ── SUCURSALES ────────────────────────────────────────────────
+let brFiltered = [];
+function brApply(){
+  const q = document.getElementById('br-search').value.toLowerCase();
+  const sb = document.getElementById('br-sort').value;
+  brFiltered = ALL_BRANCHES.filter(b => !q || b.sucursal.toLowerCase().includes(q));
+  if(sb === 'total') brFiltered.sort((a,b) => b.total - a.total);
+  else if(sb === 'n_svc') brFiltered.sort((a,b) => b.servicios.length - a.servicios.length);
+  else if(sb === 'promedio') brFiltered.sort((a,b) => {
+    const aA = a.servicios.reduce((s,[,v])=>s+v,0) / Math.max(a.servicios.length,1);
+    const bA = b.servicios.reduce((s,[,v])=>s+v,0) / Math.max(b.servicios.length,1);
+    return bA - aA;
+  });
+  else brFiltered.sort((a,b) => a.sucursal.localeCompare(b.sucursal));
+  brRender();
+}
+function brRender(){
+  document.getElementById('br-count').textContent = brFiltered.length + ' sucursal' + (brFiltered.length !== 1 ? 'es' : '');
+  const list = document.getElementById('br-list');
+  list.innerHTML = '';
+  brFiltered.forEach((b, i) => {
+    const pctGlobal = TOTAL_PROD ? (b.total / TOTAL_PROD * 100).toFixed(1) : '0';
+    const item = document.createElement('div');
+    item.className = 'br-item';
+    const maxSvc = b.servicios.length ? b.servicios[0][1] : 1;
+    const svcRows = b.servicios.map((svc, si) => {
+      const pct = Math.round(svc[1] / maxSvc * 100);
+      const pctBr = Math.round(svc[1] / b.total * 100);
+      // find sequence from ALL_SERVICES
+      const found = ALL_SERVICES.find(s => s.nombre === svc[0]);
+      const seq = found ? (found.origen + (found.destino ? ' → ' + found.destino : '')) : '';
+      return `<div class="bsl-row">
+        <span class="bsl-i">${si+1}</span>
+        <span class="bsl-svc" title="${esc(svc[0])}">${esc(svc[0])}</span>
+        <span class="bsl-seq" title="${esc(seq)}">${esc(seq)}</span>
+        <div class="bsl-bar-bg"><div class="bsl-bar-fill" style="width:${pct}%"></div></div>
+        <span class="bsl-val">${fmtM(svc[1])}</span>
+        <span class="bsl-pct">${pctBr}%</span>
+      </div>`;
+    }).join('');
+    item.innerHTML = `
+      <div class="br-head" onclick="toggleBranch(this)">
+        <div class="br-left">
+          <span class="br-badge">#${i+1}</span>
+          <div>
+            <div class="br-name">${esc(b.sucursal)}</div>
+            <div class="br-sub">${b.servicios.length} servicio${b.servicios.length!==1?'s':''}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="text-align:right">
+            <div class="br-total">${fmtM(b.total)}</div>
+            <div style="font-size:10px;color:var(--ink3)">${pctGlobal}% del total</div>
+          </div>
+          <span class="br-arrow">▾</span>
+        </div>
+      </div>
+      <div class="br-svc-list">
+        <div class="bsl-header">
+          <span style="min-width:22px"></span>
+          <span style="flex:0 0 160px">Servicio</span>
+          <span style="flex:1">Ruta</span>
+          <span style="min-width:70px"></span>
+          <span style="flex:0 0 75px;text-align:right">Venta</span>
+          <span style="flex:0 0 36px;text-align:right">%</span>
+        </div>
+        ${svcRows}
+      </div>`;
+    list.appendChild(item);
+  });
+}
+function toggleBranch(head){
+  const arrow = head.querySelector('.br-arrow');
+  const list = head.nextElementSibling;
+  const isOpen = list.classList.contains('open');
+  list.classList.toggle('open', !isOpen);
+  arrow.classList.toggle('open', !isOpen);
+}
+document.getElementById('br-search').addEventListener('input', brApply);
+document.getElementById('br-sort').addEventListener('change', brApply);
+
+// ── PAGINATION ────────────────────────────────────────────────
+function renderPg(infoId, btnsId, total, page, pageSize, onPage){
+  const pages = Math.ceil(total/pageSize)||1;
+  document.getElementById(infoId).textContent = `Página ${page} de ${pages}`;
+  const c = document.getElementById(btnsId);
+  c.innerHTML = '';
+  const prev = document.createElement('button');
+  prev.className='pg-btn'; prev.textContent='‹'; prev.disabled = page===1;
+  prev.onclick = () => onPage(page-1); c.appendChild(prev);
+  for(let p = Math.max(1,page-2); p <= Math.min(pages,page+2); p++){
+    const b = document.createElement('button');
+    b.className = 'pg-btn' + (p===page?' active':'');
+    b.textContent = p;
+    (p => b.onclick = () => onPage(p))(p);
+    c.appendChild(b);
+  }
+  const next = document.createElement('button');
+  next.className='pg-btn'; next.textContent='›'; next.disabled = page>=pages;
+  next.onclick = () => onPage(page+1); c.appendChild(next);
+}
+
+// ── CHARTS ────────────────────────────────────────────────────
+let chartsDrawn = false;
+function renderCharts(){
+  if(chartsDrawn || !ALL_SERVICES.length) return;
+  chartsDrawn = true;
+
+  const BLUE = '#1a3cff', TEAL = '#0891b2';
+  const gridColor = '#e2e0db';
+  Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+
+  // Top 20 services
+  const top20s = ALL_SERVICES.slice(0,20);
+  new Chart(document.getElementById('chart-top20'), {
+    type:'bar',
+    data:{
+      labels: top20s.map(s => s.nombre.length > 26 ? s.nombre.substring(0,24)+'…' : s.nombre),
+      datasets:[{
+        label:'Producción (M CLP)',
+        data: top20s.map(s => +(s.produccion/1e6).toFixed(1)),
+        backgroundColor: BLUE, borderRadius:3,
+      }]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>'$'+c.raw+'M'}}},
+      scales:{
+        x:{ticks:{callback:v=>'$'+v+'M'}, grid:{color:gridColor}},
+        y:{ticks:{font:{size:11}}, grid:{display:false}}
+      },
+      onClick:(e,els)=>{ if(els.length){ openPanel(top20s[els[0].index]); } }
+    }
+  });
+
+  // Top 20 branches
+  const top20b = ALL_BRANCHES.slice(0,20);
+  new Chart(document.getElementById('chart-branches'), {
+    type:'bar',
+    data:{
+      labels: top20b.map(b => b.sucursal.length > 14 ? b.sucursal.substring(0,12)+'…' : b.sucursal),
+      datasets:[{
+        label:'Producción (M CLP)',
+        data: top20b.map(b => +(b.total/1e6).toFixed(1)),
+        backgroundColor: TEAL, borderRadius:3,
+      }]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>'$'+c.raw+'M'}}},
+      scales:{
+        x:{ticks:{callback:v=>'$'+v+'M'}, grid:{color:gridColor}},
+        y:{ticks:{font:{size:11}}, grid:{display:false}}
+      }
+    }
+  });
+
+  // Distribution
+  const ranges = [0,5e6,10e6,20e6,40e6,Infinity];
+  const rl = ['<$5M','$5-10M','$10-20M','$20-40M','>$40M'];
+  const rc = rl.map((_,i) => ALL_SERVICES.filter(s => s.produccion >= ranges[i] && s.produccion < ranges[i+1]).length);
+  new Chart(document.getElementById('chart-dist'), {
+    type:'doughnut',
+    data:{
+      labels: rl,
+      datasets:[{data:rc, backgroundColor:['#bfdbfe','#93c5fd','#60a5fa','#3b82f6','#1a3cff'], borderWidth:0}]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:11}}},
+        tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' servicios'}}}
+    }
+  });
+
+  // Concentration
+  const top30b = ALL_BRANCHES.slice(0,30);
+  let cum = 0;
+  const cumPct = top30b.map(b => { cum += b.total; return +(cum/TOTAL_PROD*100).toFixed(1); });
+  new Chart(document.getElementById('chart-conc'), {
+    type:'bar',
+    data:{
+      labels: top30b.map(b => b.sucursal.length > 10 ? b.sucursal.substring(0,8)+'…' : b.sucursal),
+      datasets:[
+        {label:'% del total', data:top30b.map(b=>+(b.total/TOTAL_PROD*100).toFixed(1)), backgroundColor:TEAL, borderRadius:3, yAxisID:'y'},
+        {label:'% acumulado', data:cumPct, type:'line', borderColor:BLUE, pointRadius:3, fill:false, tension:.3, yAxisID:'y2'}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'top',labels:{font:{size:11}}}},
+      scales:{
+        x:{ticks:{font:{size:10}}, grid:{display:false}},
+        y:{ticks:{callback:v=>v+'%'}, grid:{color:gridColor}, title:{display:true,text:'% del total',font:{size:11}}},
+        y2:{position:'right', ticks:{callback:v=>v+'%'}, grid:{display:false}, title:{display:true,text:'% acumulado',font:{size:11}}}
+      }
+    }
+  });
+}
+
+// ── INSIGHTS ──────────────────────────────────────────────────
+function buildInsights(){
+  const el = document.getElementById('insights-content');
+  el.innerHTML = '';
+
+  // 1. Top services
+  const top10svc = ALL_SERVICES.slice(0,10);
+  el.innerHTML += buildInsightCard(
+    'top10svc', 'Top 10 servicios', 'Mayor producción del período',
+    top10svc.map(s => ({
+      name: s.nombre,
+      val: fmtM(s.produccion),
+      badge: (s.produccion/TOTAL_PROD*100).toFixed(1) + '%',
+      badgeCls: 'badge-blue'
+    }))
+  );
+
+  // 2. Top branches
+  const top10br = ALL_BRANCHES.slice(0,10);
+  el.innerHTML += buildInsightCard(
+    'top10br', 'Top 10 sucursales', 'Mayor producción total',
+    top10br.map(b => ({
+      name: b.sucursal,
+      val: fmtM(b.total),
+      badge: (b.total/TOTAL_PROD*100).toFixed(1) + '%',
+      badgeCls: 'badge-blue'
+    }))
+  );
+
+  // 3. Best avg ticket (min 100 seats)
+  const byAvg = ALL_SERVICES.filter(s=>s.asientos>=100)
+    .map(s=>({...s, avg:Math.round(s.produccion/s.asientos)}))
+    .sort((a,b)=>b.avg-a.avg).slice(0,10);
+  el.innerHTML += buildInsightCard(
+    'bestAvg', 'Mayor tarifa promedio', 'Servicios con ≥ 100 asientos vendidos',
+    byAvg.map(s => ({
+      name: s.nombre,
+      val: fmt(s.avg) + '/asiento',
+      badge: s.asientos + ' pax',
+      badgeCls: 'badge-green'
+    }))
+  );
+
+  // 4. Services with most branches
+  const byBr = [...ALL_SERVICES].sort((a,b)=>b.sucursales.length-a.sucursales.length).slice(0,10);
+  el.innerHTML += buildInsightCard(
+    'mostBr', 'Mayor alcance de venta', 'Servicios con más sucursales vendedoras',
+    byBr.map(s => ({
+      name: s.nombre,
+      val: s.sucursales.length + ' sucursales',
+      badge: fmtM(s.produccion),
+      badgeCls: 'badge-amber'
+    }))
+  );
+
+  // 5. Branch diversification: branches with most unique services
+  const byUniq = [...ALL_BRANCHES].sort((a,b)=>b.servicios.length-a.servicios.length).slice(0,10);
+  el.innerHTML += buildInsightCard(
+    'brDiv', 'Sucursales más diversificadas', 'Mayor cantidad de servicios vendidos',
+    byUniq.map(b => ({
+      name: b.sucursal,
+      val: b.servicios.length + ' servicios',
+      badge: fmtM(b.total),
+      badgeCls: 'badge-amber'
+    }))
+  );
+
+  // 6. Concentration alert: pareto analysis
+  let cum80 = 0, cnt80 = 0;
+  for(const s of ALL_SERVICES){
+    cum80 += s.produccion;
+    cnt80++;
+    if(cum80 >= TOTAL_PROD * 0.8) break;
+  }
+  let cumBr80 = 0, cntBr80 = 0;
+  for(const b of ALL_BRANCHES){
+    cumBr80 += b.total;
+    cntBr80++;
+    if(cumBr80 >= TOTAL_PROD * 0.8) break;
+  }
+  const paretoHTML = `
+    <div class="insight-card full" id="insight-pareto">
+      <div class="insight-title">📌 Análisis de Concentración (Pareto)</div>
+      <div class="insight-sub">¿Cuántos servicios/sucursales generan el 80% de la producción?</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px">
+        <div style="background:var(--accent-dim);border-radius:var(--r);padding:16px">
+          <div style="font-size:28px;font-weight:700;color:var(--accent)">${cnt80} servicios</div>
+          <div style="font-size:13px;color:var(--ink2);margin-top:4px">generan el <strong>80%</strong> de la producción</div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:4px">de un total de ${ALL_SERVICES.length} servicios (${(cnt80/ALL_SERVICES.length*100).toFixed(0)}%)</div>
+        </div>
+        <div style="background:var(--teal-dim);border-radius:var(--r);padding:16px">
+          <div style="font-size:28px;font-weight:700;color:var(--teal)">${cntBr80} sucursales</div>
+          <div style="font-size:13px;color:var(--ink2);margin-top:4px">generan el <strong>80%</strong> de la producción</div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:4px">de un total de ${ALL_BRANCHES.length} sucursales (${(cntBr80/ALL_BRANCHES.length*100).toFixed(0)}%)</div>
+        </div>
+      </div>
+    </div>`;
+  el.innerHTML += paretoHTML;
+}
+
+function buildInsightCard(id, title, sub, rows){
+  const rowsHTML = rows.map(r => `
+    <div class="insight-row">
+      <span class="insight-name" title="${esc(r.name)}">${esc(r.name)}</span>
+      <span class="insight-val">${r.val}</span>
+      <span class="insight-badge ${r.badgeCls}">${r.badge}</span>
+    </div>`).join('');
+  return `<div class="insight-card" id="insight-${id}">
+    <div class="insight-title">${title}</div>
+    <div class="insight-sub">${sub}</div>
+    ${rowsHTML}
+  </div>`;
+}
+
+// ── DOWNLOADS ─────────────────────────────────────────────────
+document.getElementById('dl-svc-csv').onclick = () => {
+  const rows = [['#','Servicio','Origen','Destino','Produccion','Asientos','Tarifa_Prom','N_Sucursales']];
+  svcFiltered.forEach((s,i) => {
+    rows.push([i+1, s.nombre, s.origen, s.destino, s.produccion, s.asientos,
+      s.asientos ? Math.round(s.produccion/s.asientos) : 0, s.sucursales.length]);
+  });
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv], {type:'text/csv'}));
+  a.download = 'servicios.csv'; a.click();
+};
+document.getElementById('dl-svc-xlsx').onclick = () => {
+  // minimal xlsx-like CSV download labeled as xlsx
+  const rows = [['#','Servicio','Origen','Destino','Produccion','Asientos','Tarifa_Prom','N_Sucursales']];
+  svcFiltered.forEach((s,i) => {
+    rows.push([i+1, s.nombre, s.origen, s.destino, s.produccion, s.asientos,
+      s.asientos ? Math.round(s.produccion/s.asientos) : 0, s.sucursales.length]);
+    s.sucursales.forEach(([suc,val]) => rows.push(['','','','',suc,val,'','']));
+  });
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv], {type:'text/csv'}));
+  a.download = 'servicios_detalle.csv'; a.click();
+};
+document.getElementById('dl-br-xlsx').onclick = () => {
+  const rows = [['Sucursal','Total','N_Servicios','Servicio','Produccion_en_Suc','Pct_Sucursal']];
+  brFiltered.forEach(b => {
+    b.servicios.forEach(([svc,val]) => {
+      rows.push([b.sucursal, b.total, b.servicios.length, svc, val, Math.round(val/b.total*100)+'%']);
+    });
+  });
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv], {type:'text/csv'}));
+  a.download = 'sucursales_detalle.csv'; a.click();
+};
+</script>
+</body>
+</html>
