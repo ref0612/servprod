@@ -274,7 +274,7 @@ tbody td{padding:9px 12px;vertical-align:middle}
 <!-- ── UPLOAD SCREEN ── -->
 <div id="upload-screen">
   <h1>Producción de<br><em>Servicios</em></h1>
-  <p>Cargá el reporte CSV de konnectpro para visualizar producción, secuencias de servicios y rendimiento por sucursal.</p>
+  <p>Cargá el reporte CSV de Ticket Simply para visualizar producción, secuencias de servicios y rendimiento por sucursal.</p>
 
   <label class="drop-zone" id="drop-zone">
     <span class="drop-icon">📂</span>
@@ -327,6 +327,7 @@ tbody td{padding:9px 12px;vertical-align:middle}
   <div class="tabs-bar">
     <button class="tab-btn active" data-tab="servicios">📋 Servicios</button>
     <button class="tab-btn" data-tab="sucursales">🏪 Sucursales</button>
+    <button class="tab-btn" data-tab="ciudades">🗺️ Por Ciudad</button>
     <button class="tab-btn" data-tab="graficos">📊 Gráficos</button>
     <button class="tab-btn" data-tab="insights">💡 Insights</button>
   </div>
@@ -395,7 +396,51 @@ tbody td{padding:9px 12px;vertical-align:middle}
     <div id="br-list" style="padding-bottom:32px"></div>
   </div>
 
-  <!-- TAB: GRÁFICOS -->
+  <!-- TAB: CIUDADES -->
+  <div id="tab-ciudades" style="display:none">
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input id="ciu-search" type="text" placeholder="Buscar ciudad…"/>
+      </div>
+      <select id="ciu-sort">
+        <option value="produccion">↓ Producción</option>
+        <option value="servicios">↓ Nº Servicios</option>
+        <option value="pasajeros">↓ Pasajeros</option>
+        <option value="nombre">A-Z Nombre</option>
+      </select>
+      <select id="ciu-tipo">
+        <option value="todas">Todas las ciudades</option>
+        <option value="origen">Solo orígenes</option>
+        <option value="destino">Solo destinos</option>
+        <option value="parada">Solo paradas intermedias</option>
+      </select>
+      <button class="btn" id="dl-ciu-csv">↓ CSV Ciudades</button>
+      <span class="count-tag" id="ciu-count"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="ciu-table">
+        <thead><tr>
+          <th data-col="nombre">Ciudad</th>
+          <th data-col="servicios" style="text-align:right">Servicios en ruta</th>
+          <th data-col="como_origen" style="text-align:right">Origen</th>
+          <th data-col="como_destino" style="text-align:right">Destino</th>
+          <th data-col="como_parada" style="text-align:right">Parada</th>
+          <th data-col="pasajeros" style="text-align:right">Pax embarcados</th>
+          <th data-col="produccion" style="text-align:right">Recaudación embarque</th>
+          <th>% del total</th>
+        </tr></thead>
+        <tbody id="ciu-tbody"></tbody>
+      </table>
+      <div id="ciu-nodata" class="no-data" style="display:none">Sin resultados</div>
+    </div>
+    <div class="pagination">
+      <span id="ciu-pginfo"></span>
+      <div class="pg-btns" id="ciu-pgbtns"></div>
+    </div>
+  </div>
+
+
   <div id="tab-graficos" style="display:none">
     <div class="charts-grid">
       <div class="chart-card full">
@@ -428,8 +473,27 @@ tbody td{padding:9px 12px;vertical-align:middle}
   </div>
 </div>
 
-<!-- PANEL LATERAL -->
+<!-- PANEL LATERAL SERVICIO -->
 <div class="panel-overlay" id="overlay"></div>
+
+<!-- PANEL LATERAL CIUDAD -->
+<div class="panel-overlay" id="ciu-overlay"></div>
+<div class="panel" id="ciu-panel">
+  <div class="panel-head">
+    <div style="min-width:0">
+      <div id="ciu-panel-title" style="font-size:15px;font-weight:700;color:var(--ink)"></div>
+      <div id="ciu-panel-sub" style="font-size:11px;color:var(--ink3);margin-top:3px"></div>
+    </div>
+    <button class="panel-close" id="ciu-panel-close">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="panel-kpis" id="ciu-panel-kpis"></div>
+    <div class="sec-label">Servicios que pasan por esta ciudad</div>
+    <div id="ciu-panel-svcs"></div>
+  </div>
+</div>
+
+
 <div class="panel" id="panel">
   <div class="panel-head">
     <div style="min-width:0">
@@ -453,8 +517,10 @@ tbody td{padding:9px 12px;vertical-align:middle}
 
 <script>
 // ── DATA ─────────────────────────────────────────────────────
-let ALL_SERVICES = [], ALL_BRANCHES = [], MAX_SVC_PROD = 1, TOTAL_PROD = 0;
+let ALL_SERVICES = [], ALL_BRANCHES = [], ALL_CITIES = [], MAX_SVC_PROD = 1, TOTAL_PROD = 0;
 let FILE_NAME = '', FILE_ROWS = 0;
+let brFiltered = [], ciuFiltered = [], svcFiltered = [];
+let brSortKey = 'total', ciuPage = 1, svcPage = 1, svcSortCol = 'produccion', svcSortDir = -1;
 
 // ── FORMATS ──────────────────────────────────────────────────
 const fmt = n => '$' + Math.round(n).toLocaleString('es-CL');
@@ -563,6 +629,45 @@ function reconstructSequence(odCounter, minCount = 2) {
   return result;
 }
 
+// ── EMBARQUE NORMALIZATION MAP ────────────────────────────────
+// Maps raw "Punto de Embarque" values → canonical city name (same as Origen/Destino)
+const EMBARQUE_MAP = {
+  "(Puerto Montt) Avda. Dgo. Portales Nº 1001":"Puerto Montt",
+  "Alto Hospicio":"Alto Hospicio","Av. Errazuriz S/N":"Valparaíso",
+  "Baquedano":"Baquedano","Cabrero":"Cabrero",
+  "Calama Terminal Balmaceda":"Calama","Campanario":"Campanario",
+  "Cauquenes":"Cauquenes","Chillan":"Chillán","Cholguan":"Cholguán",
+  "Concepción":"Concepción","Diego De Almadro":"Diego De Almagro",
+  "Diego De Almagro":"Diego De Almagro","El Salado":"El Salado",
+  "El Salvador":"El Salvador","Frutillar":"Frutillar","Huépil":"Huepil",
+  "Inca De Oro":"Inca De Oro","Jujuy":"Jujuy","La Union":"La Unión",
+  "Lautaro":"Lautaro","Linares":"Linares","Longavi":"Longavi",
+  "Los Ángeles":"Los ángeles","Maria Elena":"María Elena",
+  "Mejillones":"Mejillones","Osorno":"Osorno","Paillaco":"Paillaco",
+  "Parral":"Parral","Pitrufquen":"Pitrufquen","Pozo Almonte":"Pozo Almonte",
+  "Puerto Varas":"Puerto Varas","Rio Bueno":"Río Bueno",
+  "Salta(Argentina)":"Salta","Salto del Laja":"Salto Del Laja.",
+  "San Pedro De Atacama":"San Pedro De Atacama","Santa Cruz":"Santa Cruz",
+  "Sierra Gorda":"Sierra Gorda","Talca":"Talca","Taltal":"Taltal",
+  "Temuco":"Temuco","Terminal Alameda":"Santiago",
+  "Terminal Canela Baja":"Canela Baja","Terminal De Antofagasta":"Antofagasta",
+  "Terminal De Arica":"Arica","Terminal De Caldera":"Caldera",
+  "Terminal De Chañaral":"Chañaral","Terminal De Copiapo":"Copiapó",
+  "Terminal De Iquique":"Iquique","Terminal De Ovalle":"Ovalle",
+  "Terminal De Valdivia":"Valdivia","Terminal De Vallenar":"Vallenar",
+  "Terminal Illapel":"Illapel","Terminal La Calera":"La Calera",
+  "Terminal La Serena":"La Serena","Terminal Los Vilos":"Los Vilos",
+  "Terminal Paseo Portal":"Santiago","Terminal Pichilemu":"Pichilemu",
+  "Terminal Rancagua":"Rancagua","Terminal Rodoviario":"Los ángeles",
+  "Terminal San Borja":"Santiago","Terminal San Fernando":"San Fernando",
+  "Terminal Valparaiso":"Valparaíso","Terminal Villarrica":"Villarrica",
+  "Terminal Viña Del Mar":"Viña Del Mar","Terminal de Coquimbo":"Coquimbo",
+  "Terminal de Pucon":"Pucon","Terminal de Salamanca":"Salamanca",
+  "Terminal sur":"Santiago","Tocopilla":"Tocopilla","Tucapel":"Tucapel",
+  "Vega Techada":"Vega Techada","Yumbel":"Yumbel","Yungay":"Yungay"
+};
+function normalizeEmbarque(raw){ return EMBARQUE_MAP[raw] || raw; }
+
 // ── PROCESS RAW ROWS ─────────────────────────────────────────
 function processRows(rows){
   FILE_ROWS = rows.length;
@@ -571,6 +676,8 @@ function processRows(rows){
   const brMap = new Map();   // sucursal → branch object
   // OD counters per service (for sequence reconstruction)
   const svcOD = new Map();   // nombre → Map("O||D" → count)
+  // Embarque aggregates for city index (production & passengers by boarding city)
+  const _embarqueData = new Map(); // canonical city → {prod, pax}
   let totalProd = 0, totalPax = 0, totalCancel = 0;
 
   for(const r of rows){
@@ -581,6 +688,7 @@ function processRows(rows){
     const asiento = parseInt(r['N° Asiento']||'0') || 0;
     const origen = (r['Origen'] || '').trim();
     const destino = (r['Destino'] || '').trim();
+    const embarqueRaw = (r['Punto de Embarque'] || '').trim();
 
     const isCanceled = estado.toLowerCase().includes('cancel');
     if(isCanceled) totalCancel++;
@@ -597,6 +705,15 @@ function processRows(rows){
     if(!isCanceled && monto > 0){
       totalProd += monto;
       if(asiento > 0) totalPax++;
+
+      // Collect embarque-based city stats (production & passengers by boarding point)
+      if(embarqueRaw){
+        const ciudad = normalizeEmbarque(embarqueRaw);
+        if(!_embarqueData.has(ciudad)) _embarqueData.set(ciudad, {prod:0, pax:0});
+        const ed = _embarqueData.get(ciudad);
+        ed.prod += monto;
+        ed.pax  += 1;
+      }
 
       if(!svcMap.has(nombre)){
         svcMap.set(nombre, {
@@ -637,6 +754,59 @@ function processRows(rows){
     ...b,
     servicios: Array.from(b.servicios.entries()).sort((a,b) => b[1]-a[1])
   })).sort((a,b) => b.total - a.total);
+
+  // ── BUILD CITY INDEX ────────────────────────────────────────
+  // Production & passengers: from Punto de Embarque (exact, non-inflated)
+  // Services that pass: from reconstructed sequences (role = origen/destino/parada)
+  // Embarque names are normalized to canonical city names via EMBARQUE_MAP.
+  // This avoids the double-counting problem of attributing full service revenue
+  // to every city on the route.
+
+  const cityMap = new Map(); // canonical city → city object
+
+  function getOrCreateCity(nombre){
+    if(!cityMap.has(nombre)){
+      cityMap.set(nombre, {
+        nombre,
+        produccion: 0,   // real: sum of Monto Produccion Total where embarque = this city
+        pasajeros: 0,    // real: count of tickets where embarque = this city
+        comoOrigen: 0,   // services where this city is first stop
+        comoDestino: 0,  // services where this city is last stop
+        comoParada: 0,   // services where this city is intermediate stop
+        serviciosList: []
+      });
+    }
+    return cityMap.get(nombre);
+  }
+
+  // Pass 1: production & passengers from embarque raw rows (already processed above)
+  // We need to re-iterate rows — stored in embarqueData built during main loop
+  for(const [ciudad, data] of _embarqueData){
+    const c = getOrCreateCity(ciudad);
+    c.produccion += data.prod;
+    c.pasajeros  += data.pax;
+  }
+
+  // Pass 2: service roles from reconstructed sequences
+  for(const s of ALL_SERVICES){
+    const n = s.paradas.length;
+    s.paradas.forEach((ciudad, idx) => {
+      const c = getOrCreateCity(ciudad);
+      let rol;
+      if(idx === 0)        { rol = 'origen';  c.comoOrigen++; }
+      else if(idx === n-1) { rol = 'destino'; c.comoDestino++; }
+      else                 { rol = 'parada';  c.comoParada++; }
+      c.serviciosList.push({ nombre: s.nombre, produccion: s.produccion, asientos: s.asientos, paradas: s.paradas, rol });
+    });
+  }
+
+  ALL_CITIES = Array.from(cityMap.values()).map(c => ({
+    ...c,
+    servicios: c.serviciosList.length,
+    serviciosList: c.serviciosList.sort((a,b) => b.produccion - a.produccion)
+  })).sort((a,b) => b.produccion - a.produccion);
+
+
 
   TOTAL_PROD = totalProd;
   MAX_SVC_PROD = ALL_SERVICES.length ? ALL_SERVICES[0].produccion : 1;
@@ -691,6 +861,7 @@ function launchApp(stats){
   updateKPIs(stats);
   svcApply();
   brApply();
+  ciuApply();
   buildInsights();
 }
 
@@ -704,7 +875,7 @@ function resetApp(){
   ['chart-top20','chart-branches','chart-dist','chart-conc'].forEach(id => {
     const c = Chart.getChart(id); if(c) c.destroy();
   });
-  ALL_SERVICES = []; ALL_BRANCHES = [];
+  ALL_SERVICES = []; ALL_BRANCHES = []; ALL_CITIES = [];
 }
 
 // ── KPIs ─────────────────────────────────────────────────────
@@ -727,16 +898,16 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     const tab = btn.dataset.tab;
-    ['servicios','sucursales','graficos','insights'].forEach(t =>
+    ['servicios','sucursales','ciudades','graficos','insights'].forEach(t =>
       document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none'
     );
     if(tab === 'graficos') renderCharts();
     if(tab === 'sucursales') brApply();
+    if(tab === 'ciudades') ciuApply();
   });
 });
 
 // ── SERVICIOS ─────────────────────────────────────────────────
-let svcFiltered = [], svcSortCol = 'produccion', svcSortDir = -1, svcPage = 1;
 const SVC_PAGE = 40;
 
 function svcApply(){
@@ -878,7 +1049,6 @@ function closePanel(){
 }
 
 // ── SUCURSALES ────────────────────────────────────────────────
-let brFiltered = [];
 function brApply(){
   const q = document.getElementById('br-search').value.toLowerCase();
   const sb = document.getElementById('br-sort').value;
@@ -957,6 +1127,182 @@ function toggleBranch(head){
 }
 document.getElementById('br-search').addEventListener('input', brApply);
 document.getElementById('br-sort').addEventListener('change', brApply);
+
+// ── CIUDADES ──────────────────────────────────────────────────
+const CIU_PAGE = 50;
+let MAX_CIU_PROD = 1;
+
+function ciuApply(){
+  const q = document.getElementById('ciu-search').value.toLowerCase();
+  const sb = document.getElementById('ciu-sort').value;
+  const tipo = document.getElementById('ciu-tipo').value;
+
+  ciuFiltered = ALL_CITIES.filter(c => {
+    if(q && !c.nombre.toLowerCase().includes(q)) return false;
+    if(tipo === 'origen' && c.comoOrigen === 0) return false;
+    if(tipo === 'destino' && c.comoDestino === 0) return false;
+    if(tipo === 'parada' && c.comoParada === 0) return false;
+    return true;
+  });
+
+  if(sb === 'produccion')  ciuFiltered.sort((a,b) => b.produccion - a.produccion);
+  else if(sb === 'servicios') ciuFiltered.sort((a,b) => b.servicios - a.servicios);
+  else if(sb === 'pasajeros') ciuFiltered.sort((a,b) => b.pasajeros - a.pasajeros);
+  else ciuFiltered.sort((a,b) => a.nombre.localeCompare(b.nombre));
+
+  MAX_CIU_PROD = ciuFiltered.length ? ciuFiltered[0].produccion : 1;
+  ciuPage = 1;
+  ciuRender();
+}
+
+function ciuRender(){
+  const total = ciuFiltered.length;
+  const start = (ciuPage - 1) * CIU_PAGE;
+  const slice = ciuFiltered.slice(start, start + CIU_PAGE);
+  const tbody = document.getElementById('ciu-tbody');
+  tbody.innerHTML = '';
+  document.getElementById('ciu-nodata').style.display = total === 0 ? '' : 'none';
+  document.getElementById('ciu-count').textContent = total + ' ciudad' + (total !== 1 ? 'es' : '');
+
+  slice.forEach((c, i) => {
+    const pct = Math.round(c.produccion / MAX_CIU_PROD * 100);
+    const pctTotal = TOTAL_PROD ? ((c.produccion / TOTAL_PROD * 100).toFixed(1) + '%') : '—';
+    const tr = document.createElement('tr');
+
+    // Role badges
+    const roles = [];
+    if(c.comoOrigen)  roles.push(`<span style="font-size:9px;padding:2px 6px;background:var(--accent-dim);color:var(--accent);border-radius:100px;font-weight:700">${c.comoOrigen} origen${c.comoOrigen!==1?'es':''}</span>`);
+    if(c.comoDestino) roles.push(`<span style="font-size:9px;padding:2px 6px;background:var(--green-dim);color:var(--green);border-radius:100px;font-weight:700">${c.comoDestino} destino${c.comoDestino!==1?'s':''}</span>`);
+    if(c.comoParada)  roles.push(`<span style="font-size:9px;padding:2px 6px;background:var(--surface2);border:1px solid var(--border);color:var(--ink3);border-radius:100px;font-weight:600">${c.comoParada} parada${c.comoParada!==1?'s':''}</span>`);
+
+    tr.innerHTML = `
+      <td>
+        <div style="font-weight:700;font-size:13px">${start+i+1}. ${esc(c.nombre)}</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${roles.join('')}</div>
+      </td>
+      <td class="num" style="font-size:16px;font-weight:800;color:var(--accent)">${c.servicios}</td>
+      <td class="num">${c.comoOrigen}</td>
+      <td class="num">${c.comoDestino}</td>
+      <td class="num">${c.comoParada}</td>
+      <td class="num">${c.pasajeros.toLocaleString('es-CL')}</td>
+      <td class="num" style="color:var(--ink);font-weight:700">${fmtM(c.produccion)}</td>
+      <td>
+        <div class="bar-wrap">
+          <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:var(--accent)"></div></div>
+          <span style="font-size:10px;color:var(--ink3);min-width:36px;text-align:right">${pctTotal}</span>
+        </div>
+      </td>`;
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('click', () => openCiuPanel(c));
+    tbody.appendChild(tr);
+  });
+
+  renderPg('ciu-pginfo','ciu-pgbtns', total, ciuPage, CIU_PAGE, p => { ciuPage = p; ciuRender(); });
+}
+
+function openCiuPanel(c){
+  document.getElementById('ciu-panel-title').textContent = c.nombre;
+  const avgTicket = c.pasajeros ? Math.round(c.produccion / c.pasajeros) : 0;
+  document.getElementById('ciu-panel-sub').textContent =
+    `${c.servicios} servicios en ruta · ${c.pasajeros.toLocaleString('es-CL')} pax embarcados · ${fmtM(c.produccion)} recaudado`;
+
+  // KPIs
+  document.getElementById('ciu-panel-kpis').innerHTML = `
+    <div class="pk"><div class="pk-l">Servicios en ruta</div><div class="pk-v" style="color:var(--accent)">${c.servicios}</div></div>
+    <div class="pk"><div class="pk-l">Pax embarcados aquí</div><div class="pk-v">${c.pasajeros.toLocaleString('es-CL')}</div></div>
+    <div class="pk"><div class="pk-l">Recaudación embarque</div><div class="pk-v" style="color:var(--green)">${fmtM(c.produccion)}</div></div>
+    <div class="pk"><div class="pk-l">Ticket prom. embarque</div><div class="pk-v">${avgTicket ? fmt(avgTicket) : '—'}</div></div>
+    <div class="pk"><div class="pk-l">Como origen</div><div class="pk-v">${c.comoOrigen}</div></div>
+    <div class="pk"><div class="pk-l">Como parada</div><div class="pk-v">${c.comoParada}</div></div>
+    <div class="pk"><div class="pk-l">Como destino</div><div class="pk-v">${c.comoDestino}</div></div>
+    <div class="pk"><div class="pk-l">% recaudación total</div><div class="pk-v">${TOTAL_PROD?(c.produccion/TOTAL_PROD*100).toFixed(1)+'%':'—'}</div></div>`;
+
+  // Service list grouped by role
+  const container = document.getElementById('ciu-panel-svcs');
+  container.innerHTML = '';
+
+  const groups = [
+    { label: '🔵 Como origen', cls:'badge-blue', items: c.serviciosList.filter(s=>s.rol==='origen') },
+    { label: '🟢 Como destino', cls:'badge-green', items: c.serviciosList.filter(s=>s.rol==='destino') },
+    { label: '⚪ Parada intermedia', cls:'', items: c.serviciosList.filter(s=>s.rol==='parada') },
+  ];
+
+  const maxProd = c.serviciosList.length ? c.serviciosList[0].produccion : 1;
+
+  groups.forEach(g => {
+    if(!g.items.length) return;
+    const secLabel = document.createElement('div');
+    secLabel.className = 'sec-label';
+    secLabel.style.marginTop = '16px';
+    secLabel.textContent = `${g.label} (${g.items.length})`;
+    container.appendChild(secLabel);
+
+    g.items.forEach((s, i) => {
+      const pct = Math.round(s.produccion / maxProd * 100);
+      const div = document.createElement('div');
+      div.className = 'det-row';
+      div.style.flexDirection = 'column';
+      div.style.alignItems = 'flex-start';
+      div.style.gap = '6px';
+      div.style.padding = '8px 0';
+
+      // Show the full route as mini pills with this city highlighted
+      const pillsHTML = (s.paradas||[]).map((p, idx) => {
+        const isThis = p === c.nombre;
+        const isFirst = idx === 0;
+        const isLast = idx === s.paradas.length - 1;
+        let style = 'font-size:10px;padding:2px 8px;border-radius:100px;white-space:nowrap;';
+        if(isThis) style += 'background:var(--amber-dim);border:1.5px solid var(--amber);color:var(--amber);font-weight:800;';
+        else if(isFirst) style += 'background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-weight:600;';
+        else if(isLast) style += 'background:var(--green-dim);border:1px solid var(--green);color:var(--green);font-weight:600;';
+        else style += 'background:var(--surface2);border:1px solid var(--border);color:var(--ink3);';
+        return `<span style="${style}">${esc(p)}</span>`;
+      }).join('<span style="color:var(--border2);font-size:11px;margin:0 1px">›</span>');
+
+      div.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:8px">
+          <span style="font-size:12px;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(s.nombre)}">${i+1}. ${esc(s.nombre)}</span>
+          <span style="font-size:11px;font-weight:700;color:var(--teal);white-space:nowrap">${fmtM(s.produccion)}</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin-top:2px">${pillsHTML}</div>
+        <div style="width:100%;background:var(--border);border-radius:100px;height:3px;margin-top:2px">
+          <div style="width:${pct}%;height:3px;border-radius:100px;background:var(--teal)"></div>
+        </div>`;
+      container.appendChild(div);
+    });
+  });
+
+  document.getElementById('ciu-overlay').classList.add('open');
+  document.getElementById('ciu-panel').classList.add('open');
+}
+
+document.getElementById('ciu-panel-close').onclick = () => {
+  document.getElementById('ciu-overlay').classList.remove('open');
+  document.getElementById('ciu-panel').classList.remove('open');
+};
+document.getElementById('ciu-overlay').onclick = () => {
+  document.getElementById('ciu-overlay').classList.remove('open');
+  document.getElementById('ciu-panel').classList.remove('open');
+};
+
+document.getElementById('ciu-search').addEventListener('input', ciuApply);
+document.getElementById('ciu-sort').addEventListener('change', ciuApply);
+document.getElementById('ciu-tipo').addEventListener('change', ciuApply);
+
+document.getElementById('dl-ciu-csv').onclick = () => {
+  const rows = [['#','Ciudad','Servicios','Pasajeros','Produccion','Como_Origen','Como_Destino','Como_Parada','Pct_del_Total']];
+  ciuFiltered.forEach((c, i) => {
+    rows.push([
+      i+1, c.nombre, c.servicios, c.pasajeros, c.produccion,
+      c.comoOrigen, c.comoDestino, c.comoParada,
+      TOTAL_PROD ? (c.produccion/TOTAL_PROD*100).toFixed(2)+'%' : '0%'
+    ]);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv], {type:'text/csv'}));
+  a.download = 'ciudades.csv'; a.click();
+};
 
 // ── PAGINATION ────────────────────────────────────────────────
 function renderPg(infoId, btnsId, total, page, pageSize, onPage){
