@@ -26,28 +26,29 @@ body{background:var(--bg);color:var(--ink);min-height:100vh}
 /* ── UPLOAD SCREEN ── */
 #upload-screen{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  min-height:100vh;padding:40px 24px;text-align:center;
+  min-height:100vh;padding:24px 24px 32px;text-align:center;
 }
 #upload-screen h1{
-  font-family:'Fraunces',serif;font-weight:700;font-size:clamp(28px,5vw,52px);
-  line-height:1.1;letter-spacing:-0.5px;margin-bottom:12px;
+  font-family:'Fraunces',serif;font-weight:700;font-size:clamp(24px,4vw,42px);
+  line-height:1.1;letter-spacing:-0.5px;margin-bottom:8px;
 }
 #upload-screen h1 em{font-style:italic;color:var(--accent)}
-#upload-screen p{color:var(--ink2);font-size:15px;max-width:440px;margin-bottom:40px;line-height:1.6}
+#upload-screen p{color:var(--ink2);font-size:14px;max-width:480px;margin-bottom:20px;line-height:1.5}
 .drop-zone{
-  width:100%;max-width:480px;border:2px dashed var(--border2);border-radius:var(--r2);
-  padding:48px 32px;cursor:pointer;transition:all .2s;background:var(--surface);
-  position:relative;
+  width:100%;border:2px dashed var(--border2);border-radius:var(--r2);
+  padding:24px 28px;cursor:pointer;transition:all .2s;background:var(--surface);
+  position:relative;overflow:hidden;display:block;
 }
 .drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:var(--accent-dim)}
-.drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
-.drop-icon{font-size:40px;margin-bottom:16px;display:block}
-.drop-zone strong{font-size:16px;font-weight:600;color:var(--ink);display:block;margin-bottom:6px}
-.drop-zone span{font-size:13px;color:var(--ink3)}
-.progress-bar-wrap{width:100%;max-width:480px;margin-top:20px;display:none}
+/* Input covers only its own drop-zone, clipped by overflow:hidden */
+.drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:1}
+.drop-icon{font-size:28px;margin-bottom:8px;display:block}
+.drop-zone strong{font-size:14px;font-weight:600;color:var(--ink);display:block;margin-bottom:4px}
+.drop-zone span{font-size:12px;color:var(--ink3)}
+.progress-bar-wrap{width:100%;max-width:520px;margin-top:16px;display:none}
 .progress-bar-bg{height:6px;background:var(--border);border-radius:100px;overflow:hidden}
 .progress-bar-fill{height:6px;background:var(--accent);border-radius:100px;width:0;transition:width .1s}
-#upload-status{margin-top:12px;font-size:13px;color:var(--ink3);text-align:center}
+#upload-status{margin-top:10px;font-size:13px;color:var(--ink3);text-align:center}
 .schema-hint{
   margin-top:32px;background:var(--surface2);border:1px solid var(--border);
   border-radius:var(--r);padding:16px 20px;max-width:480px;text-align:left;
@@ -274,30 +275,48 @@ tbody td{padding:9px 12px;vertical-align:middle}
 <!-- ── UPLOAD SCREEN ── -->
 <div id="upload-screen">
   <h1>Producción de<br><em>Servicios</em></h1>
-  <p>Cargá el reporte CSV de Ticket Simply para visualizar producción, secuencias de servicios y rendimiento por sucursal.</p>
+  <p>Cargá uno o ambos reportes CSV. El portal abre en cuanto cargues el primero.</p>
 
-  <label class="drop-zone" id="drop-zone">
-    <span class="drop-icon">📂</span>
-    <strong>Arrastrá tu CSV aquí</strong>
-    <span>o hacé click para seleccionar archivo</span>
-    <input type="file" id="file-input" accept=".csv,.txt"/>
-  </label>
+  <div style="display:flex;flex-direction:column;gap:12px;width:100%;max-width:520px">
 
-  <div class="progress-bar-wrap" id="progress-wrap">
-    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
-    <div id="upload-status">Procesando...</div>
-  </div>
+    <!-- File 1: Produccion -->
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);margin-bottom:6px">
+        📋 Archivo 1 — Reporte de producción <span style="color:var(--red)">*obligatorio</span>
+      </div>
+      <label class="drop-zone" id="drop-zone">
+        <span class="drop-icon" id="dz1-icon">📂</span>
+        <strong id="dz1-label">Reporte_Producción_de_Servicios.csv</strong>
+        <span id="dz1-sub">Arrastrá o hacé click · Columnas: Nombre del Servicio, Sucursal de Venta, Monto Produccion Total…</span>
+        <input type="file" id="file-input" accept=".csv,.txt"/>
+      </label>
+      <div id="dz1-status" style="font-size:12px;color:var(--ink3);margin-top:6px;min-height:18px"></div>
+    </div>
 
-  <div class="schema-hint">
-    <p>Columnas requeridas en el CSV</p>
-    <code>Nombre del Servicio</code>
-    <code>Sucursal de Venta</code>
-    <code>Monto Produccion Total</code>
-    <code>Estado</code>
-    <code>N° Asiento</code>
-    <code>Origen</code>
-    <code>Destino</code>
-    <code>Punto de Embarque</code>
+    <!-- File 2: Recaudacion por servicio -->
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);margin-bottom:6px">
+        ✅ Archivo 2 — Recaudación por servicio <span style="color:var(--ink3)">(opcional)</span>
+      </div>
+      <label class="drop-zone" id="drop-zone-2">
+        <span class="drop-icon" id="dz2-icon">📂</span>
+        <strong id="dz2-label">Recaudación_por_servicio.csv</strong>
+        <span id="dz2-sub">Arrastrá o hacé click · Columnas: Fecha de Viaje, Servicio, Estado, Patente, Conductor1…</span>
+        <input type="file" id="file-input-2" accept=".csv,.txt"/>
+      </label>
+      <div id="dz2-status" style="font-size:12px;color:var(--ink3);margin-top:6px;min-height:18px"></div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-bar-wrap" id="progress-wrap">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+      <div id="upload-status">Procesando...</div>
+    </div>
+
+    <!-- Launch button (shows after file1 is ready) -->
+    <button id="launch-btn" style="display:none;background:var(--accent);color:#fff;border:none;border-radius:var(--r);padding:12px 24px;font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+      Abrir portal →
+    </button>
   </div>
 </div>
 
@@ -328,6 +347,7 @@ tbody td{padding:9px 12px;vertical-align:middle}
     <button class="tab-btn active" data-tab="servicios">📋 Servicios</button>
     <button class="tab-btn" data-tab="sucursales">🏪 Sucursales</button>
     <button class="tab-btn" data-tab="ciudades">🗺️ Por Ciudad</button>
+    <button class="tab-btn" data-tab="cumplimiento">✅ Cumplimiento</button>
     <button class="tab-btn" data-tab="graficos">📊 Gráficos</button>
     <button class="tab-btn" data-tab="insights">💡 Insights</button>
   </div>
@@ -441,6 +461,112 @@ tbody td{padding:9px 12px;vertical-align:middle}
   </div>
 
 
+  <!-- TAB: CUMPLIMIENTO -->
+  <div id="tab-cumplimiento" style="display:none">
+
+    <!-- Upload zone for second file -->
+    <div id="cum-upload-zone" style="padding:32px;text-align:center;border-bottom:1px solid var(--border);background:var(--surface2)">
+      <p style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:6px">📂 Cargar Recaudación por Servicio</p>
+      <p style="font-size:12px;color:var(--ink3);margin-bottom:16px">CSV con columnas: Fecha de Viaje · Servicio · Estado · Patente · Conductor1 · Recaudación en Sucursal</p>
+      <label style="display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;padding:10px 20px;border-radius:var(--r);cursor:pointer;font-size:13px;font-weight:600;transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+        ↑ Seleccionar CSV de recaudación
+        <input type="file" id="cum-file-input" accept=".csv" style="display:none"/>
+      </label>
+      <div id="cum-progress-wrap" style="display:none;margin-top:16px;max-width:400px;margin-left:auto;margin-right:auto">
+        <div style="height:5px;background:var(--border);border-radius:100px;overflow:hidden">
+          <div id="cum-progress-fill" style="height:5px;background:var(--accent);border-radius:100px;width:0;transition:width .1s"></div>
+        </div>
+        <div id="cum-status" style="font-size:12px;color:var(--ink3);margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- KPIs de cumplimiento -->
+    <div id="cum-content" style="display:none">
+      <div class="kpi-row" id="cum-kpi-row" style="grid-template-columns:repeat(7,1fr)">
+        <div class="kpi-cell"><div class="kpi-label">Total viajes</div><div class="kpi-val" id="ck-total">—</div><div class="kpi-sub">En el período</div></div>
+        <div class="kpi-cell"><div class="kpi-label">✅ Recaudados</div><div class="kpi-val" id="ck-rec" style="color:var(--green)">—</div><div class="kpi-sub">Con tripulación y recaudación</div></div>
+        <div class="kpi-cell"><div class="kpi-label">🚌 En ruta</div><div class="kpi-val" id="ck-enruta" style="color:var(--accent)">—</div><div class="kpi-sub">En circulación ahora</div></div>
+        <div class="kpi-cell"><div class="kpi-label">⏳ Pendientes</div><div class="kpi-val" id="ck-pend" style="color:var(--amber)">—</div><div class="kpi-sub">Próximos a salir</div></div>
+        <div class="kpi-cell"><div class="kpi-label">⚪ Completados</div><div class="kpi-val" id="ck-comp">—</div><div class="kpi-sub">Sin datos de rec.</div></div>
+        <div class="kpi-cell"><div class="kpi-label">❌ Inactivos</div><div class="kpi-val" id="ck-inact" style="color:var(--red)">—</div><div class="kpi-sub">Sin tripulación asignada</div></div>
+        <div class="kpi-cell"><div class="kpi-label">% Cumplimiento</div><div class="kpi-val" id="ck-pct" style="color:var(--green)">—</div><div class="kpi-sub">Recaudados / total</div></div>
+      </div>
+
+      <!-- Second KPI row: financial -->
+      <div class="kpi-row" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kpi-cell"><div class="kpi-label">Recaudación total</div><div class="kpi-val blue" id="ck-monto">—</div><div class="kpi-sub">Sucursal (período)</div></div>
+        <div class="kpi-cell"><div class="kpi-label">Asientos recaudados</div><div class="kpi-val" id="ck-asientos">—</div><div class="kpi-sub">Total período</div></div>
+        <div class="kpi-cell"><div class="kpi-label">Ticket promedio</div><div class="kpi-val green" id="ck-avg-ticket">—</div><div class="kpi-sub">Por asiento</div></div>
+        <div class="kpi-cell"><div class="kpi-label">Servicios únicos</div><div class="kpi-val" id="ck-svc-unicos">—</div><div class="kpi-sub">Con al menos 1 viaje</div></div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input id="cum-search" type="text" placeholder="Buscar servicio…"/>
+        </div>
+        <select id="cum-sort">
+          <option value="recaudacion">↓ Recaudación</option>
+          <option value="pct">↓ % Cumplimiento</option>
+          <option value="viajes">↓ Total viajes</option>
+          <option value="inactivos">↓ Inactivos</option>
+          <option value="nombre">A-Z Nombre</option>
+        </select>
+        <select id="cum-filtro">
+          <option value="todos">Todos los servicios</option>
+          <option value="alto">Alto cumplimiento (≥80%)</option>
+          <option value="medio">Medio (50-79%)</option>
+          <option value="bajo">Bajo (&lt;50%)</option>
+          <option value="inactivo">Con inactivos</option>
+        </select>
+        <select id="cum-fecha">
+          <option value="todos">Todas las fechas</option>
+        </select>
+        <button class="btn" id="dl-cum-csv">↓ CSV Cumplimiento</button>
+        <span class="count-tag" id="cum-count"></span>
+      </div>
+
+      <!-- Daily heatmap -->
+      <div style="padding:0 32px 16px">
+        <div style="font-size:12px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Cumplimiento diario — % viajes recaudados por día</div>
+        <div id="cum-heatmap" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+        <div style="display:flex;gap:16px;margin-top:8px;font-size:11px;color:var(--ink3);align-items:center">
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#dcfce7;border-radius:2px;display:inline-block"></span> 80-100%</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#bbf7d0;border-radius:2px;display:inline-block"></span> 60-79%</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#fef08a;border-radius:2px;display:inline-block"></span> 40-59%</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#fed7aa;border-radius:2px;display:inline-block"></span> 20-39%</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#fecaca;border-radius:2px;display:inline-block"></span> 0-19%</span>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Servicio</th>
+            <th style="text-align:right">Recaudados</th>
+            <th style="text-align:right">En Ruta</th>
+            <th style="text-align:right">Pendientes</th>
+            <th style="text-align:right">Inactivos</th>
+            <th style="text-align:right">Total viajes</th>
+            <th style="text-align:right">% Cumplim.</th>
+            <th style="text-align:right">Recaudación</th>
+            <th style="text-align:right">Asientos</th>
+            <th style="text-align:right">$/Asiento</th>
+          </tr></thead>
+          <tbody id="cum-tbody"></tbody>
+        </table>
+        <div id="cum-nodata" class="no-data" style="display:none">Sin resultados</div>
+      </div>
+      <div class="pagination">
+        <span id="cum-pginfo"></span>
+        <div class="pg-btns" id="cum-pgbtns"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: GRÁFICOS -->
   <div id="tab-graficos" style="display:none">
     <div class="charts-grid">
       <div class="chart-card full">
@@ -463,6 +589,26 @@ tbody td{padding:9px 12px;vertical-align:middle}
         <div class="chart-sub">Top 30 sucursales · % de la producción total</div>
         <div class="chart-canvas-wrap" style="height:300px"><canvas id="chart-conc"></canvas></div>
       </div>
+      <div class="chart-card full">
+        <div class="chart-title">Top 20 ciudades · Recaudación por embarque</div>
+        <div class="chart-sub">Monto recaudado según ciudad de embarque del pasajero</div>
+        <div class="chart-canvas-wrap" style="height:400px"><canvas id="chart-ciu-prod"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Top 20 ciudades · Pasajeros embarcados</div>
+        <div class="chart-sub">Cantidad de pasajes con embarque en cada ciudad</div>
+        <div class="chart-canvas-wrap" style="height:400px"><canvas id="chart-ciu-pax"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Top 20 ciudades · Servicios en ruta</div>
+        <div class="chart-sub">Cantidad de servicios cuya ruta incluye la ciudad</div>
+        <div class="chart-canvas-wrap" style="height:400px"><canvas id="chart-ciu-svc"></canvas></div>
+      </div>
+      <div class="chart-card full">
+        <div class="chart-title">Ciudades por rol en la red</div>
+        <div class="chart-sub">Top 25 ciudades — desglose como origen, parada intermedia y destino</div>
+        <div class="chart-canvas-wrap" style="height:360px"><canvas id="chart-ciu-rol"></canvas></div>
+      </div>
     </div>
   </div>
 
@@ -473,8 +619,24 @@ tbody td{padding:9px 12px;vertical-align:middle}
   </div>
 </div>
 
-<!-- PANEL LATERAL SERVICIO -->
-<div class="panel-overlay" id="overlay"></div>
+<!-- PANEL LATERAL CUMPLIMIENTO -->
+<div class="panel-overlay" id="cum-overlay"></div>
+<div class="panel" id="cum-panel">
+  <div class="panel-head">
+    <div style="min-width:0">
+      <div id="cum-panel-title" style="font-size:15px;font-weight:700;color:var(--ink)"></div>
+      <div id="cum-panel-sub" style="font-size:11px;color:var(--ink3);margin-top:3px"></div>
+    </div>
+    <button class="panel-close" id="cum-panel-close">✕</button>
+  </div>
+  <div class="panel-body">
+    <div id="cum-panel-kpis" class="panel-kpis"></div>
+    <div class="sec-label">Detalle por fecha</div>
+    <div id="cum-panel-fechas"></div>
+  </div>
+</div>
+
+
 
 <!-- PANEL LATERAL CIUDAD -->
 <div class="panel-overlay" id="ciu-overlay"></div>
@@ -494,6 +656,7 @@ tbody td{padding:9px 12px;vertical-align:middle}
 </div>
 
 
+<div class="panel-overlay" id="overlay"></div>
 <div class="panel" id="panel">
   <div class="panel-head">
     <div style="min-width:0">
@@ -517,9 +680,9 @@ tbody td{padding:9px 12px;vertical-align:middle}
 
 <script>
 // ── DATA ─────────────────────────────────────────────────────
-let ALL_SERVICES = [], ALL_BRANCHES = [], ALL_CITIES = [], MAX_SVC_PROD = 1, TOTAL_PROD = 0;
+let ALL_SERVICES = [], ALL_BRANCHES = [], ALL_CITIES = [], ALL_CUMPLIMIENTO = [], MAX_SVC_PROD = 1, TOTAL_PROD = 0;
 let FILE_NAME = '', FILE_ROWS = 0;
-let brFiltered = [], ciuFiltered = [], svcFiltered = [];
+let brFiltered = [], ciuFiltered = [], svcFiltered = [], cumFiltered = [];
 let brSortKey = 'total', ciuPage = 1, svcPage = 1, svcSortCol = 'produccion', svcSortDir = -1;
 
 // ── FORMATS ──────────────────────────────────────────────────
@@ -815,44 +978,148 @@ function processRows(rows){
 }
 
 // ── FILE HANDLING ─────────────────────────────────────────────
-const dropZone = document.getElementById('drop-zone');
+// ── FILE HANDLING (dual upload) ───────────────────────────────
+// State for each file
+let _file1Ready = false;  // produccion CSV parsed
+let _file2Ready = false;  // recaudacion CSV parsed
+let _pendingStats = null; // stats from file1 waiting for launch
+
+// ── DROP ZONE 1 (produccion) ──────────────────────────────────
+const dropZone  = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag'); });
 dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
-dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
-fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag');
+  handleFile1(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => handleFile1(e.target.files[0]));
 
-function handleFile(file){
+// ── DROP ZONE 2 (recaudacion) ─────────────────────────────────
+const dropZone2  = document.getElementById('drop-zone-2');
+const fileInput2 = document.getElementById('file-input-2');
+
+dropZone2.addEventListener('dragover',  e => { e.preventDefault(); dropZone2.classList.add('drag'); });
+dropZone2.addEventListener('dragleave', () => dropZone2.classList.remove('drag'));
+dropZone2.addEventListener('drop', e => {
+  e.preventDefault(); dropZone2.classList.remove('drag');
+  handleFile2(e.dataTransfer.files[0]);
+});
+fileInput2.addEventListener('change', e => handleFile2(e.target.files[0]));
+
+// ── Shared progress helpers ───────────────────────────────────
+function setProgress(pct, msg){
+  document.getElementById('progress-wrap').style.display = 'block';
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('upload-status').textContent = msg;
+}
+
+function markDropzone(n, ok, name){
+  const icon  = document.getElementById('dz'+n+'-icon');
+  const label = document.getElementById('dz'+n+'-label');
+  const sub   = document.getElementById('dz'+n+'-sub');
+  const zone  = document.getElementById(n===1?'drop-zone':'drop-zone-2');
+  icon.textContent  = ok ? '✅' : '❌';
+  label.textContent = ok ? name : 'Error al leer';
+  sub.textContent   = ok ? '' : 'Intentá de nuevo';
+  zone.style.borderColor = ok ? 'var(--green)' : 'var(--red)';
+  zone.style.background  = ok ? 'var(--green-dim)' : 'var(--red-dim)';
+}
+
+// ── Handle File 1 — Produccion ────────────────────────────────
+function handleFile1(file){
   if(!file) return;
   FILE_NAME = file.name;
-  const wrap = document.getElementById('progress-wrap');
-  const fill = document.getElementById('progress-fill');
-  const status = document.getElementById('upload-status');
-  wrap.style.display = 'block';
-  status.textContent = 'Leyendo archivo…';
-  fill.style.width = '10%';
+  document.getElementById('dz1-status').textContent = 'Leyendo…';
+  setProgress(5, 'Leyendo archivo de producción…');
 
   const reader = new FileReader();
-  reader.onprogress = e => { if(e.lengthComputable) fill.style.width = (10 + 60*(e.loaded/e.total)) + '%'; };
+  reader.onprogress = e => { if(e.lengthComputable) setProgress(5+55*(e.loaded/e.total), 'Leyendo…'); };
   reader.onload = e => {
-    fill.style.width = '75%';
-    status.textContent = 'Procesando datos…';
+    setProgress(65, 'Procesando producción…');
     setTimeout(() => {
       try{
         const rows = parseCSV(e.target.result);
-        fill.style.width = '90%';
+        FILE_ROWS = rows.length;
+        setProgress(85, 'Calculando…');
         const stats = processRows(rows);
-        fill.style.width = '100%';
-        status.textContent = `✓ ${rows.length.toLocaleString('es-CL')} registros procesados`;
-        setTimeout(() => launchApp(stats), 400);
+        setProgress(100, `✓ ${rows.length.toLocaleString('es-CL')} registros de producción listos`);
+        _file1Ready = true;
+        _pendingStats = stats;
+        markDropzone(1, true, file.name);
+        document.getElementById('dz1-status').textContent = `✓ ${rows.length.toLocaleString('es-CL')} registros`;
+        document.getElementById('launch-btn').style.display = 'block';
+        // If portal already open, refresh data
+        if(document.getElementById('app').style.display !== 'none') launchApp(stats);
       } catch(err){
-        status.textContent = '✗ Error al procesar: ' + err.message;
-        fill.style.background = 'var(--red)';
+        markDropzone(1, false, file.name);
+        document.getElementById('dz1-status').textContent = '✗ ' + err.message;
+        setProgress(100, '✗ Error: ' + err.message);
+        document.getElementById('progress-fill').style.background = 'var(--red)';
       }
     }, 50);
   };
   reader.readAsText(file, 'UTF-8');
+}
+
+// ── Handle File 2 — Recaudacion ───────────────────────────────
+function handleFile2(file){
+  if(!file) return;
+  document.getElementById('dz2-status').textContent = 'Leyendo…';
+  setProgress(5, 'Leyendo archivo de recaudación…');
+
+  const reader = new FileReader();
+  reader.onprogress = e => { if(e.lengthComputable) setProgress(5+55*(e.loaded/e.total), 'Leyendo…'); };
+  reader.onload = ev => {
+    setProgress(65, 'Procesando recaudación…');
+    setTimeout(() => {
+      try{
+        const rows = parseCSV(ev.target.result);
+        setProgress(90, 'Calculando cumplimiento…');
+        const { byDate, allFechas } = processCumplimiento(rows);
+        setProgress(100, `✓ ${rows.length.toLocaleString('es-CL')} registros de recaudación listos`);
+        _file2Ready = true;
+        markDropzone(2, true, file.name);
+        document.getElementById('dz2-status').textContent = `✓ ${rows.length.toLocaleString('es-CL')} registros`;
+
+        // If portal already open, update cumplimiento tab
+        if(document.getElementById('app').style.display !== 'none'){
+          mountCumplimientoData(byDate, allFechas);
+        } else if(_file1Ready){
+          // Both ready, auto-launch
+          document.getElementById('launch-btn').click();
+        }
+      } catch(err){
+        markDropzone(2, false, file.name);
+        document.getElementById('dz2-status').textContent = '✗ ' + err.message;
+        setProgress(100, '✗ Error: ' + err.message);
+        document.getElementById('progress-fill').style.background = 'var(--red)';
+      }
+    }, 50);
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ── Also handle File 2 from inside the cumplimiento tab ───────
+document.getElementById('cum-file-input').addEventListener('change', e => {
+  handleFile2(e.target.files[0]);
+  // Hide the in-tab upload zone once processing starts
+  document.getElementById('dz2-status');
+});
+
+// ── Launch button ─────────────────────────────────────────────
+document.getElementById('launch-btn').addEventListener('click', () => {
+  if(_pendingStats) launchApp(_pendingStats);
+});
+
+function mountCumplimientoData(byDate, allFechas){
+  document.getElementById('cum-upload-zone').style.display = 'none';
+  document.getElementById('cum-content').style.display = 'block';
+  buildCumKPIs();
+  buildCumHeatmap(byDate, allFechas);
+  buildCumFechaSelect(allFechas);
+  cumApply();
 }
 
 function launchApp(stats){
@@ -863,19 +1130,82 @@ function launchApp(stats){
   brApply();
   ciuApply();
   buildInsights();
+  // If file2 was already parsed, mount cumplimiento immediately
+  if(_file2Ready && ALL_CUMPLIMIENTO.length){
+    // Re-trigger mount (byDate/allFechas no longer needed — data is in ALL_CUMPLIMIENTO)
+    document.getElementById('cum-upload-zone').style.display = 'none';
+    document.getElementById('cum-content').style.display = 'block';
+    buildCumKPIs();
+    // Rebuild heatmap from ALL_CUMPLIMIENTO
+    rebuildHeatmapFromData();
+    buildCumFechaSelectFromData();
+    cumApply();
+  }
 }
+
+// ── Rebuild heatmap from ALL_CUMPLIMIENTO (after launchApp) ──
+function rebuildHeatmapFromData(){
+  const byDate = new Map();
+  const allFechas = new Set();
+  for(const s of ALL_CUMPLIMIENTO){
+    for(const f of s.fechasList){
+      const fecha = f.fecha;
+      allFechas.add(fecha);
+      if(!byDate.has(fecha)) byDate.set(fecha,{rec:0,inact:0,en_ruta:0,pend:0,comp:0,total:0});
+      const d = byDate.get(fecha);
+      d.total++;
+      if(f.estado==='Recaudado')    d.rec++;
+      if(f.estado==='INACTIVO')     d.inact++;
+      if(f.estado==='En Ruta')      d.en_ruta++;
+      if(f.estado==='Pendientes')   d.pend++;
+      if(f.estado==='Completados')  d.comp++;
+    }
+  }
+  const sorted = [...allFechas].sort();
+  buildCumHeatmap(byDate, sorted);
+}
+function buildCumFechaSelectFromData(){
+  const allFechas = new Set();
+  for(const s of ALL_CUMPLIMIENTO) for(const f of s.fechasList) allFechas.add(f.fecha);
+  buildCumFechaSelect([...allFechas].sort());
+}
+
+
 
 function resetApp(){
   document.getElementById('upload-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
   document.getElementById('progress-wrap').style.display = 'none';
   document.getElementById('progress-fill').style.width = '0';
+  document.getElementById('progress-fill').style.background = 'var(--accent)';
   document.getElementById('file-input').value = '';
+  document.getElementById('file-input-2').value = '';
+  document.getElementById('launch-btn').style.display = 'none';
+  // Reset dropzone 1
+  document.getElementById('dz1-icon').textContent = '📂';
+  document.getElementById('dz1-label').textContent = 'Reporte_Producción_de_Servicios.csv';
+  document.getElementById('dz1-sub').textContent = 'Arrastrá o hacé click · Columnas: Nombre del Servicio, Sucursal de Venta, Monto Produccion Total…';
+  document.getElementById('dz1-status').textContent = '';
+  document.getElementById('drop-zone').style.borderColor = '';
+  document.getElementById('drop-zone').style.background = '';
+  // Reset dropzone 2
+  document.getElementById('dz2-icon').textContent = '📂';
+  document.getElementById('dz2-label').textContent = 'Recaudación_por_servicio.csv';
+  document.getElementById('dz2-sub').textContent = 'Arrastrá o hacé click · Columnas: Fecha de Viaje, Servicio, Estado, Patente, Conductor1…';
+  document.getElementById('dz2-status').textContent = '';
+  document.getElementById('drop-zone-2').style.borderColor = '';
+  document.getElementById('drop-zone-2').style.background = '';
+  // Reset cumplimiento tab
+  document.getElementById('cum-upload-zone').style.display = 'block';
+  document.getElementById('cum-content').style.display = 'none';
+  // Reset state
+  _file1Ready = false; _file2Ready = false; _pendingStats = null;
   chartsDrawn = false;
-  ['chart-top20','chart-branches','chart-dist','chart-conc'].forEach(id => {
+  ['chart-top20','chart-branches','chart-dist','chart-conc',
+   'chart-ciu-prod','chart-ciu-pax','chart-ciu-svc','chart-ciu-rol'].forEach(id => {
     const c = Chart.getChart(id); if(c) c.destroy();
   });
-  ALL_SERVICES = []; ALL_BRANCHES = []; ALL_CITIES = [];
+  ALL_SERVICES = []; ALL_BRANCHES = []; ALL_CITIES = []; ALL_CUMPLIMIENTO = [];
 }
 
 // ── KPIs ─────────────────────────────────────────────────────
@@ -898,7 +1228,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     const tab = btn.dataset.tab;
-    ['servicios','sucursales','ciudades','graficos','insights'].forEach(t =>
+    ['servicios','sucursales','ciudades','cumplimiento','graficos','insights'].forEach(t =>
       document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none'
     );
     if(tab === 'graficos') renderCharts();
@@ -1304,6 +1634,336 @@ document.getElementById('dl-ciu-csv').onclick = () => {
   a.download = 'ciudades.csv'; a.click();
 };
 
+// ── CUMPLIMIENTO ──────────────────────────────────────────────
+const CUM_PAGE = 40;
+let cumPage = 1;
+
+// ── Parse money from recaudacion CSV format ───────────────────
+function parseMoneyCum(s){
+  s = String(s||'').trim().replace(/\$/g,'').replace(/\./g,'').replace(/,/g,'.').replace(/\s/g,'');
+  return parseFloat(s) || 0;
+}
+
+// ── Clean service name: "Display (Internal)" → "Display" ─────
+function cleanSvcName(raw){
+  raw = raw.trim();
+  const last = raw.lastIndexOf('(');
+  if(last > 0) return raw.slice(0, last).trim();
+  return raw;
+}
+
+// ── Process recaudacion CSV rows ─────────────────────────────
+function processCumplimiento(rows){
+  // Map: serviceName → { cumplido, inactivo, en_ruta, pendiente, completado,
+  //   rec_total, asientos_total, fechas:Map(fecha→{estado,patente,cond,rec,asientos}),
+  //   patentes:Set, origen, destino }
+  const svcMap = new Map();
+  const byDate  = new Map(); // fecha → {rec,inact,en_ruta,pend,comp,total}
+  const allFechas = new Set();
+
+  for(const r of rows){
+    const svcRaw = r['Servicio'] || '';
+    const svc    = cleanSvcName(svcRaw);
+    if(!svc) continue;
+
+    const estado   = (r['Estado']||'').trim();
+    const patente  = (r['Patente']||'').trim();
+    const cond1    = (r['Conductor1']||'').trim();
+    const fecha    = (r['Fecha de Viaje']||'').trim();
+    const origen   = (r['Origen']||'').trim();
+    const destino  = (r['Destino']||'').trim();
+    const rec      = parseMoneyCum(r['Recaudación en Sucursal']);
+    const asientos = Math.round(parseMoneyCum(r['Asientos Recaudación en Sucursal']));
+    const recCam   = parseMoneyCum(r['Recaudación en camino']);
+    const caratula = (r['Caratula']||'').trim();
+    const fechaRec = (r['Fecha de Recaudación']||'').trim();
+    const bus      = (r['Bus']||'').trim();
+
+    if(fecha) allFechas.add(fecha);
+
+    // Service record
+    if(!svcMap.has(svc)) svcMap.set(svc, {
+      nombre: svc, origen, destino,
+      cumplido:0, inactivo:0, en_ruta:0, pendiente:0, completado:0,
+      rec_total:0, rec_camino:0, asientos_total:0,
+      fechasList: [], patentes: new Set(), conductores: new Set()
+    });
+    const s = svcMap.get(svc);
+    if(!s.origen && origen) s.origen = origen;
+    if(!s.destino && destino) s.destino = destino;
+
+    if(estado === 'Recaudado')     { s.cumplido++;   }
+    else if(estado === 'INACTIVO') { s.inactivo++;   }
+    else if(estado === 'En Ruta')  { s.en_ruta++;    }
+    else if(estado === 'Pendientes'){ s.pendiente++; }
+    else if(estado === 'Completados'){ s.completado++; }
+
+    s.rec_total     += rec;
+    s.rec_camino    += recCam;
+    s.asientos_total += asientos;
+    if(patente) s.patentes.add(patente);
+    if(cond1)   s.conductores.add(cond1);
+
+    s.fechasList.push({ fecha, estado, patente, cond1, rec, asientos, caratula, fechaRec, bus });
+
+    // Daily aggregation
+    if(fecha){
+      if(!byDate.has(fecha)) byDate.set(fecha,{rec:0,inact:0,en_ruta:0,pend:0,comp:0,total:0});
+      const d = byDate.get(fecha);
+      d.total++;
+      if(estado==='Recaudado')   d.rec++;
+      if(estado==='INACTIVO')    d.inact++;
+      if(estado==='En Ruta')     d.en_ruta++;
+      if(estado==='Pendientes')  d.pend++;
+      if(estado==='Completados') d.comp++;
+    }
+  }
+
+  // Convert to array, compute pct
+  ALL_CUMPLIMIENTO = Array.from(svcMap.values()).map(s => {
+    const total = s.cumplido + s.inactivo + s.en_ruta + s.pendiente + s.completado;
+    const pct   = total ? Math.round(s.cumplido / total * 100) : 0;
+    return {
+      ...s,
+      total,
+      pct,
+      patentes: [...s.patentes],
+      conductores: [...s.conductores],
+      fechasList: s.fechasList.sort((a,b)=>a.fecha.localeCompare(b.fecha))
+    };
+  }).sort((a,b) => b.rec_total - a.rec_total);
+
+  return { byDate, allFechas: [...allFechas].sort() };
+}
+
+// ── File upload handler for cumplimiento ─────────────────────
+function buildCumKPIs(){
+  const data = ALL_CUMPLIMIENTO;
+  const totViajes   = data.reduce((s,d)=>s+d.total,0);
+  const totRec      = data.reduce((s,d)=>s+d.cumplido,0);
+  const totEnRuta   = data.reduce((s,d)=>s+d.en_ruta,0);
+  const totPend     = data.reduce((s,d)=>s+d.pendiente,0);
+  const totComp     = data.reduce((s,d)=>s+d.completado,0);
+  const totInact    = data.reduce((s,d)=>s+d.inactivo,0);
+  const totMonto    = data.reduce((s,d)=>s+d.rec_total,0);
+  const totAsientos = data.reduce((s,d)=>s+d.asientos_total,0);
+  const pct         = totViajes ? Math.round(totRec/totViajes*100) : 0;
+  const avgTicket   = totAsientos ? Math.round(totMonto/totAsientos) : 0;
+
+  document.getElementById('ck-total').textContent    = totViajes.toLocaleString('es-CL');
+  document.getElementById('ck-rec').textContent      = totRec.toLocaleString('es-CL');
+  document.getElementById('ck-enruta').textContent   = totEnRuta.toLocaleString('es-CL');
+  document.getElementById('ck-pend').textContent     = totPend.toLocaleString('es-CL');
+  document.getElementById('ck-comp').textContent     = totComp.toLocaleString('es-CL');
+  document.getElementById('ck-inact').textContent    = totInact.toLocaleString('es-CL');
+  document.getElementById('ck-pct').textContent      = pct + '%';
+  document.getElementById('ck-monto').textContent    = fmtM(totMonto);
+  document.getElementById('ck-asientos').textContent = totAsientos.toLocaleString('es-CL');
+  document.getElementById('ck-avg-ticket').textContent = avgTicket ? fmt(avgTicket) : '—';
+  document.getElementById('ck-svc-unicos').textContent = data.length.toLocaleString('es-CL');
+}
+
+function buildCumHeatmap(byDate, allFechas){
+  const el = document.getElementById('cum-heatmap');
+  el.innerHTML = '';
+  for(const fecha of allFechas){
+    const d = byDate.get(fecha) || {rec:0,total:0,inact:0,en_ruta:0,pend:0,comp:0};
+    const pct = d.total ? Math.round(d.rec/d.total*100) : 0;
+    const bg = pct>=80?'#16a34a':pct>=60?'#4ade80':pct>=40?'#facc15':pct>=20?'#fb923c':'#f87171';
+    const textColor = pct>=80||pct<20?'#fff':'#1a1d27';
+    const dd = fecha.slice(0,5); // DD/MM
+    const tip = `${fecha}\nRecaudados: ${d.rec}/${d.total} (${pct}%)\nInactivos: ${d.inact} | En Ruta: ${d.en_ruta} | Pendientes: ${d.pend}`;
+    const cell = document.createElement('div');
+    cell.title = tip;
+    cell.style.cssText = `background:${bg};color:${textColor};border-radius:6px;padding:8px 6px;text-align:center;min-width:52px;cursor:default;font-size:10px;font-weight:700`;
+    cell.innerHTML = `<div>${dd}</div><div style="font-size:13px;margin-top:2px">${pct}%</div><div style="opacity:.8;margin-top:1px">${d.rec}/${d.total}</div>`;
+    el.appendChild(cell);
+  }
+}
+
+function buildCumFechaSelect(allFechas){
+  const sel = document.getElementById('cum-fecha');
+  sel.innerHTML = '<option value="todos">Todas las fechas</option>';
+  for(const f of allFechas){
+    const opt = document.createElement('option');
+    opt.value = f; opt.textContent = f;
+    sel.appendChild(opt);
+  }
+}
+
+// ── Table ─────────────────────────────────────────────────────
+function cumApply(){
+  if(!ALL_CUMPLIMIENTO.length) return;
+  const q      = document.getElementById('cum-search').value.toLowerCase();
+  const sb     = document.getElementById('cum-sort').value;
+  const filtro = document.getElementById('cum-filtro').value;
+  const fecha  = document.getElementById('cum-fecha').value;
+
+  cumFiltered = ALL_CUMPLIMIENTO.filter(s => {
+    if(q && !s.nombre.toLowerCase().includes(q)) return false;
+    if(filtro === 'alto'    && s.pct < 80) return false;
+    if(filtro === 'medio'   && (s.pct < 50 || s.pct >= 80)) return false;
+    if(filtro === 'bajo'    && s.pct >= 50) return false;
+    if(filtro === 'inactivo' && s.inactivo === 0) return false;
+    if(fecha !== 'todos'){
+      // filter: only services that had a trip on this date
+      if(!s.fechasList.some(f => f.fecha === fecha)) return false;
+    }
+    return true;
+  });
+
+  if(sb === 'recaudacion') cumFiltered.sort((a,b) => b.rec_total - a.rec_total);
+  else if(sb === 'pct')    cumFiltered.sort((a,b) => b.pct - a.pct);
+  else if(sb === 'viajes') cumFiltered.sort((a,b) => b.total - a.total);
+  else if(sb === 'inactivos') cumFiltered.sort((a,b) => b.inactivo - a.inactivo);
+  else cumFiltered.sort((a,b) => a.nombre.localeCompare(b.nombre));
+
+  cumPage = 1;
+  cumRender();
+}
+
+function cumRender(){
+  const total = cumFiltered.length;
+  const start = (cumPage-1)*CUM_PAGE;
+  const slice = cumFiltered.slice(start, start+CUM_PAGE);
+  const tbody = document.getElementById('cum-tbody');
+  tbody.innerHTML = '';
+  document.getElementById('cum-nodata').style.display = total===0?'':'none';
+  document.getElementById('cum-count').textContent = total + ' servicio'+(total!==1?'s':'');
+
+  slice.forEach((s,i) => {
+    const avgTick = s.asientos_total ? Math.round(s.rec_total/s.asientos_total) : 0;
+    // Pct color
+    const pctColor = s.pct>=80?'var(--green)':s.pct>=50?'var(--amber)':'var(--red)';
+    // Mini bar for pct
+    const barBg = s.pct>=80?'#dcfce7':s.pct>=50?'#fef08a':'#fee2e2';
+    const barFill = s.pct>=80?'#16a34a':s.pct>=50?'#d97706':'#dc2626';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <div style="font-weight:700;font-size:13px">${start+i+1}. ${esc(s.nombre)}</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:2px">${esc(s.origen)}${s.destino?' → '+esc(s.destino):''}</div>
+      </td>
+      <td class="num" style="color:var(--green)">${s.cumplido}</td>
+      <td class="num" style="color:var(--accent)">${s.en_ruta||'—'}</td>
+      <td class="num" style="color:var(--amber)">${s.pendiente||'—'}</td>
+      <td class="num" style="color:var(--red)">${s.inactivo||'—'}</td>
+      <td class="num">${s.total}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:50px;height:6px;background:${barBg};border-radius:100px;flex-shrink:0">
+            <div style="width:${s.pct}%;height:6px;background:${barFill};border-radius:100px"></div>
+          </div>
+          <span style="font-weight:700;color:${pctColor};font-size:13px">${s.pct}%</span>
+        </div>
+      </td>
+      <td class="num" style="font-weight:700">${fmtM(s.rec_total)}</td>
+      <td class="num">${s.asientos_total.toLocaleString('es-CL')}</td>
+      <td class="num" style="color:var(--green)">${avgTick?fmt(avgTick):'—'}</td>`;
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('click', () => openCumPanel(s));
+    tbody.appendChild(tr);
+  });
+  renderPg('cum-pginfo','cum-pgbtns', total, cumPage, CUM_PAGE, p => { cumPage=p; cumRender(); });
+}
+
+// ── Panel lateral cumplimiento ────────────────────────────────
+function openCumPanel(s){
+  document.getElementById('cum-panel-title').textContent = s.nombre;
+  document.getElementById('cum-panel-sub').textContent =
+    `${s.origen}${s.destino?' → '+s.destino:''} · ${s.total} viajes en el período`;
+
+  const pctColor = s.pct>=80?'var(--green)':s.pct>=50?'var(--amber)':'var(--red)';
+  const avgTick  = s.asientos_total ? Math.round(s.rec_total/s.asientos_total) : 0;
+
+  document.getElementById('cum-panel-kpis').innerHTML = `
+    <div class="pk"><div class="pk-l">% Cumplimiento</div><div class="pk-v" style="color:${pctColor};font-size:28px">${s.pct}%</div></div>
+    <div class="pk"><div class="pk-l">Recaudación</div><div class="pk-v" style="color:var(--accent)">${fmtM(s.rec_total)}</div></div>
+    <div class="pk"><div class="pk-l">Recaudados</div><div class="pk-v" style="color:var(--green)">${s.cumplido}/${s.total}</div></div>
+    <div class="pk"><div class="pk-l">Inactivos</div><div class="pk-v" style="color:var(--red)">${s.inactivo}</div></div>
+    <div class="pk"><div class="pk-l">En Ruta</div><div class="pk-v" style="color:var(--accent)">${s.en_ruta}</div></div>
+    <div class="pk"><div class="pk-l">Pendientes</div><div class="pk-v" style="color:var(--amber)">${s.pendiente}</div></div>
+    <div class="pk"><div class="pk-l">Asientos</div><div class="pk-v">${s.asientos_total.toLocaleString('es-CL')}</div></div>
+    <div class="pk"><div class="pk-l">$/Asiento</div><div class="pk-v" style="color:var(--green)">${avgTick?fmt(avgTick):'—'}</div></div>
+    <div class="pk" style="grid-column:1/-1"><div class="pk-l">Patentes utilizadas</div>
+      <div style="font-size:12px;color:var(--ink2);margin-top:4px;font-weight:500">${s.patentes.length?s.patentes.join(' · '):'—'}</div>
+    </div>`;
+
+  // Date detail list
+  const container = document.getElementById('cum-panel-fechas');
+  container.innerHTML = '';
+
+  // Group by date
+  const byFecha = new Map();
+  s.fechasList.forEach(f => {
+    if(!byFecha.has(f.fecha)) byFecha.set(f.fecha, []);
+    byFecha.get(f.fecha).push(f);
+  });
+
+  for(const [fecha, trips] of byFecha){
+    const fechaHead = document.createElement('div');
+    fechaHead.style.cssText = 'font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;padding:10px 0 4px;border-top:1px solid var(--border);margin-top:8px';
+    fechaHead.textContent = fecha;
+    container.appendChild(fechaHead);
+
+    trips.forEach(t => {
+      const isRec = t.estado === 'Recaudado';
+      const isInact = t.estado === 'INACTIVO';
+      const isEnRuta = t.estado === 'En Ruta';
+      const isPend = t.estado === 'Pendientes';
+      const stateColor = isRec?'var(--green)':isInact?'var(--red)':isEnRuta?'var(--accent)':isPend?'var(--amber)':'var(--ink3)';
+      const stateIcon = isRec?'✅':isInact?'❌':isEnRuta?'🚌':isPend?'⏳':'⚪';
+
+      const div = document.createElement('div');
+      div.className = 'det-row';
+      div.style.flexDirection = 'column';
+      div.style.alignItems = 'flex-start';
+      div.style.gap = '4px';
+      div.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:8px">
+          <span style="font-size:12px;font-weight:700;color:${stateColor}">${stateIcon} ${t.estado}</span>
+          <span style="font-size:12px;font-weight:700;color:var(--ink)">${t.rec>0?fmtM(t.rec):'$0'}</span>
+        </div>
+        ${t.patente||t.cond1?`<div style="font-size:11px;color:var(--ink3)">
+          ${t.patente?`<span style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;margin-right:4px">🚍 ${esc(t.patente)}</span>`:''}
+          ${t.cond1?`<span>👤 ${esc(t.cond1)}</span>`:''}
+        </div>`:''}
+        ${t.asientos>0?`<div style="font-size:11px;color:var(--ink3)">${t.asientos} asientos${t.caratula?' · Carat: '+esc(t.caratula):''}${t.fechaRec?' · Rec: '+t.fechaRec:''}</div>`:''}`;
+      container.appendChild(div);
+    });
+  }
+
+  document.getElementById('cum-overlay').classList.add('open');
+  document.getElementById('cum-panel').classList.add('open');
+}
+
+document.getElementById('cum-panel-close').onclick = () => {
+  document.getElementById('cum-overlay').classList.remove('open');
+  document.getElementById('cum-panel').classList.remove('open');
+};
+document.getElementById('cum-overlay').onclick = () => {
+  document.getElementById('cum-overlay').classList.remove('open');
+  document.getElementById('cum-panel').classList.remove('open');
+};
+
+document.getElementById('cum-search').addEventListener('input', cumApply);
+document.getElementById('cum-sort').addEventListener('change', cumApply);
+document.getElementById('cum-filtro').addEventListener('change', cumApply);
+document.getElementById('cum-fecha').addEventListener('change', cumApply);
+
+document.getElementById('dl-cum-csv').onclick = () => {
+  const rows = [['#','Servicio','Origen','Destino','Recaudados','En_Ruta','Pendientes','Inactivos','Completados','Total_Viajes','Pct_Cumplimiento','Recaudacion','Asientos','Ticket_Prom']];
+  cumFiltered.forEach((s,i) => {
+    const avg = s.asientos_total ? Math.round(s.rec_total/s.asientos_total) : 0;
+    rows.push([i+1, s.nombre, s.origen, s.destino, s.cumplido, s.en_ruta, s.pendiente, s.inactivo, s.completado, s.total, s.pct+'%', s.rec_total, s.asientos_total, avg]);
+  });
+  const csv = rows.map(r => r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv'}));
+  a.download = 'cumplimiento.csv'; a.click();
+};
+
 // ── PAGINATION ────────────────────────────────────────────────
 function renderPg(infoId, btnsId, total, page, pageSize, onPage){
   const pages = Math.ceil(total/pageSize)||1;
@@ -1420,6 +2080,102 @@ function renderCharts(){
       }
     }
   });
+
+  // ── CITY CHARTS ────────────────────────────────────────────
+  const AMBER = '#d97706';
+  const ciuSorted = [...ALL_CITIES].sort((a,b) => b.produccion - a.produccion);
+
+  // Chart: top 20 cities by boarding revenue
+  const top20ciu = ciuSorted.slice(0, 20);
+  new Chart(document.getElementById('chart-ciu-prod'), {
+    type:'bar',
+    data:{
+      labels: top20ciu.map(c => c.nombre.length > 18 ? c.nombre.substring(0,16)+'…' : c.nombre),
+      datasets:[{
+        label:'Recaudación embarque (M CLP)',
+        data: top20ciu.map(c => +(c.produccion/1e6).toFixed(1)),
+        backgroundColor: BLUE, borderRadius:3
+      }]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>'$'+c.raw+'M'}}},
+      scales:{
+        x:{ticks:{callback:v=>'$'+v+'M'}, grid:{color:gridColor}},
+        y:{ticks:{font:{size:11}}, grid:{display:false}}
+      },
+      onClick:(e,els)=>{ if(els.length){ openCiuPanel(top20ciu[els[0].index]); } }
+    }
+  });
+
+  // Chart: top 20 cities by passengers boarded
+  const top20pax = [...ALL_CITIES].sort((a,b)=>b.pasajeros-a.pasajeros).slice(0,20);
+  new Chart(document.getElementById('chart-ciu-pax'), {
+    type:'bar',
+    data:{
+      labels: top20pax.map(c => c.nombre.length > 18 ? c.nombre.substring(0,16)+'…' : c.nombre),
+      datasets:[{
+        label:'Pasajeros embarcados',
+        data: top20pax.map(c => c.pasajeros),
+        backgroundColor: TEAL, borderRadius:3
+      }]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>c.raw.toLocaleString('es-CL')+' pax'}}},
+      scales:{
+        x:{ticks:{callback:v=>v.toLocaleString('es-CL')}, grid:{color:gridColor}},
+        y:{ticks:{font:{size:11}}, grid:{display:false}}
+      },
+      onClick:(e,els)=>{ if(els.length){ openCiuPanel(top20pax[els[0].index]); } }
+    }
+  });
+
+  // Chart: top 20 cities by number of services
+  const top20svc = [...ALL_CITIES].sort((a,b)=>b.servicios-a.servicios).slice(0,20);
+  new Chart(document.getElementById('chart-ciu-svc'), {
+    type:'bar',
+    data:{
+      labels: top20svc.map(c => c.nombre.length > 18 ? c.nombre.substring(0,16)+'…' : c.nombre),
+      datasets:[{
+        label:'Servicios en ruta',
+        data: top20svc.map(c => c.servicios),
+        backgroundColor: AMBER, borderRadius:3
+      }]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>c.raw+' servicios'}}},
+      scales:{
+        x:{ticks:{stepSize:1}, grid:{color:gridColor}},
+        y:{ticks:{font:{size:11}}, grid:{display:false}}
+      },
+      onClick:(e,els)=>{ if(els.length){ openCiuPanel(top20svc[els[0].index]); } }
+    }
+  });
+
+  // Chart: stacked bar — top 25 cities by total services, split by role
+  const top25rol = [...ALL_CITIES].sort((a,b)=>b.servicios-a.servicios).slice(0,25);
+  new Chart(document.getElementById('chart-ciu-rol'), {
+    type:'bar',
+    data:{
+      labels: top25rol.map(c => c.nombre.length > 16 ? c.nombre.substring(0,14)+'…' : c.nombre),
+      datasets:[
+        {label:'Como origen',  data:top25rol.map(c=>c.comoOrigen),  backgroundColor:'#1a3cff', borderRadius:0},
+        {label:'Parada intermedia', data:top25rol.map(c=>c.comoParada), backgroundColor:'#e2e0db', borderRadius:0},
+        {label:'Como destino', data:top25rol.map(c=>c.comoDestino), backgroundColor:'#0a7c5c', borderRadius:0}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'top',labels:{font:{size:11}}},
+        tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.raw}}},
+      scales:{
+        x:{stacked:true, ticks:{font:{size:10}}, grid:{display:false}},
+        y:{stacked:true, ticks:{stepSize:5}, grid:{color:gridColor}, title:{display:true,text:'Servicios',font:{size:11}}}
+      }
+    }
+  });
 }
 
 // ── INSIGHTS ──────────────────────────────────────────────────
@@ -1489,7 +2245,66 @@ function buildInsights(){
     }))
   );
 
-  // 6. Concentration alert: pareto analysis
+  // 6. Top cities by boarding revenue
+  const top10ciu = [...ALL_CITIES].sort((a,b)=>b.produccion-a.produccion).slice(0,10);
+  el.innerHTML += buildInsightCard(
+    'top10ciu', '🗺️ Top 10 ciudades · recaudación', 'Por monto recaudado en embarque',
+    top10ciu.map(c => ({
+      name: c.nombre,
+      val: fmtM(c.produccion),
+      badge: (c.produccion/TOTAL_PROD*100).toFixed(1) + '%',
+      badgeCls: 'badge-blue'
+    }))
+  );
+
+  // 7. Top cities by passengers boarded
+  const top10pax = [...ALL_CITIES].sort((a,b)=>b.pasajeros-a.pasajeros).slice(0,10);
+  el.innerHTML += buildInsightCard(
+    'top10pax', '🗺️ Top 10 ciudades · pasajeros', 'Por cantidad de pasajeros embarcados',
+    top10pax.map(c => ({
+      name: c.nombre,
+      val: c.pasajeros.toLocaleString('es-CL') + ' pax',
+      badge: fmt(c.pasajeros ? Math.round(c.produccion/c.pasajeros) : 0) + '/pax',
+      badgeCls: 'badge-green'
+    }))
+  );
+
+  // 8. Most connected cities (most services passing through)
+  const top10hub = [...ALL_CITIES].sort((a,b)=>b.servicios-a.servicios).slice(0,10);
+  el.innerHTML += buildInsightCard(
+    'top10hub', '🗺️ Top 10 ciudades · conectividad', 'Ciudades con más servicios en ruta',
+    top10hub.map(c => ({
+      name: c.nombre,
+      val: c.servicios + ' servicios',
+      badge: `${c.comoOrigen}O · ${c.comoParada}P · ${c.comoDestino}D`,
+      badgeCls: 'badge-amber'
+    }))
+  );
+
+  // 9. Cities with best avg ticket (min 200 pax boarded)
+  const byAvgCiu = ALL_CITIES.filter(c=>c.pasajeros>=200)
+    .map(c=>({...c, avgT: Math.round(c.produccion/c.pasajeros)}))
+    .sort((a,b)=>b.avgT-a.avgT).slice(0,10);
+  el.innerHTML += buildInsightCard(
+    'bestAvgCiu', '🗺️ Top 10 ciudades · ticket promedio', 'Ciudades con mayor ticket medio de embarque (≥200 pax)',
+    byAvgCiu.map(c => ({
+      name: c.nombre,
+      val: fmt(c.avgT) + '/pax',
+      badge: c.pasajeros.toLocaleString('es-CL') + ' pax',
+      badgeCls: 'badge-green'
+    }))
+  );
+
+  // 10. Concentration: pareto for cities too
+  let cumCiu80 = 0, cntCiu80 = 0;
+  const ciuByProd = [...ALL_CITIES].sort((a,b)=>b.produccion-a.produccion);
+  for(const c of ciuByProd){
+    cumCiu80 += c.produccion;
+    cntCiu80++;
+    if(cumCiu80 >= TOTAL_PROD * 0.8) break;
+  }
+
+  // 6 (old). Concentration alert: pareto analysis — now extended
   let cum80 = 0, cnt80 = 0;
   for(const s of ALL_SERVICES){
     cum80 += s.produccion;
@@ -1505,17 +2320,22 @@ function buildInsights(){
   const paretoHTML = `
     <div class="insight-card full" id="insight-pareto">
       <div class="insight-title">📌 Análisis de Concentración (Pareto)</div>
-      <div class="insight-sub">¿Cuántos servicios/sucursales generan el 80% de la producción?</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px">
+      <div class="insight-sub">¿Cuántos servicios / sucursales / ciudades generan el 80% de la producción?</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:8px">
         <div style="background:var(--accent-dim);border-radius:var(--r);padding:16px">
-          <div style="font-size:28px;font-weight:700;color:var(--accent)">${cnt80} servicios</div>
+          <div style="font-size:26px;font-weight:800;color:var(--accent)">${cnt80} servicios</div>
           <div style="font-size:13px;color:var(--ink2);margin-top:4px">generan el <strong>80%</strong> de la producción</div>
-          <div style="font-size:11px;color:var(--ink3);margin-top:4px">de un total de ${ALL_SERVICES.length} servicios (${(cnt80/ALL_SERVICES.length*100).toFixed(0)}%)</div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:4px">${(cnt80/ALL_SERVICES.length*100).toFixed(0)}% de los ${ALL_SERVICES.length} servicios</div>
         </div>
         <div style="background:var(--teal-dim);border-radius:var(--r);padding:16px">
-          <div style="font-size:28px;font-weight:700;color:var(--teal)">${cntBr80} sucursales</div>
+          <div style="font-size:26px;font-weight:800;color:var(--teal)">${cntBr80} sucursales</div>
           <div style="font-size:13px;color:var(--ink2);margin-top:4px">generan el <strong>80%</strong> de la producción</div>
-          <div style="font-size:11px;color:var(--ink3);margin-top:4px">de un total de ${ALL_BRANCHES.length} sucursales (${(cntBr80/ALL_BRANCHES.length*100).toFixed(0)}%)</div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:4px">${(cntBr80/ALL_BRANCHES.length*100).toFixed(0)}% de las ${ALL_BRANCHES.length} sucursales</div>
+        </div>
+        <div style="background:var(--amber-dim);border-radius:var(--r);padding:16px">
+          <div style="font-size:26px;font-weight:800;color:var(--amber)">${cntCiu80} ciudades</div>
+          <div style="font-size:13px;color:var(--ink2);margin-top:4px">generan el <strong>80%</strong> de la recaudación</div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:4px">${(cntCiu80/ALL_CITIES.length*100).toFixed(0)}% de las ${ALL_CITIES.length} ciudades</div>
         </div>
       </div>
     </div>`;
