@@ -447,10 +447,11 @@ tbody td{padding:9px 12px;vertical-align:middle}
         <option value="nombre">A-Z Nombre</option>
       </select>
       <select id="ciu-tipo">
+        <option value="con_embarque">Con embarque (pax+recaudación)</option>
         <option value="todas">Todas las ciudades</option>
-        <option value="origen">Solo orígenes</option>
-        <option value="destino">Solo destinos</option>
-        <option value="parada">Solo paradas intermedias</option>
+        <option value="solo_destino">Solo destino — sin embarque</option>
+        <option value="origen">Con al menos 1 servicio como origen</option>
+        <option value="destino">Con al menos 1 servicio como destino</option>
       </select>
       <button class="btn" id="dl-ciu-csv">↓ CSV Ciudades</button>
       <span class="count-tag" id="ciu-count"></span>
@@ -873,13 +874,14 @@ function processRows(rows){
       totalProd += monto;
       if(asiento > 0) totalPax++;
 
-      // Collect embarque-based city stats (production & passengers by boarding point)
-      if(embarqueRaw){
-        const ciudad = normalizeEmbarque(embarqueRaw);
-        if(!_embarqueData.has(ciudad)) _embarqueData.set(ciudad, {prod:0, pax:0});
-        const ed = _embarqueData.get(ciudad);
+      // Ciudad = Origen del ticket. Agrupa todos los terminales de la misma ciudad.
+      if(origen){
+        const embarqueTerminal = (r['Punto de Embarque'] || '').trim();
+        if(!_embarqueData.has(origen)) _embarqueData.set(origen, {prod:0, pax:0, terminales: new Set()});
+        const ed = _embarqueData.get(origen);
         ed.prod += monto;
         ed.pax  += 1;
+        if(embarqueTerminal) ed.terminales.add(embarqueTerminal);
       }
 
       if(!svcMap.has(nombre)){
@@ -924,38 +926,38 @@ function processRows(rows){
   })).sort((a,b) => b.total - a.total);
 
   // ── BUILD CITY INDEX ────────────────────────────────────────
-  // Production & passengers: from Punto de Embarque (exact, non-inflated)
-  // Services that pass: from reconstructed sequences (role = origen/destino/parada)
-  // Embarque names are normalized to canonical city names via EMBARQUE_MAP.
-  // This avoids the double-counting problem of attributing full service revenue
-  // to every city on the route.
+  // Producción/pasajeros: desde _embarqueData cuyo key es Origen.
+  // Todos los terminales de una ciudad se consolidan porque comparten el
+  // mismo Origen (ej: Terminal San Borja + Terminal Sur → Santiago).
+  // Servicios en ruta: desde secuencias reconstruidas (origen/parada/destino).
 
-  const cityMap = new Map(); // canonical city → city object
+  const cityMap = new Map();
 
   function getOrCreateCity(nombre){
     if(!cityMap.has(nombre)){
       cityMap.set(nombre, {
         nombre,
-        produccion: 0,   // real: sum of Monto Produccion Total where embarque = this city
-        pasajeros: 0,    // real: count of tickets where embarque = this city
-        comoOrigen: 0,   // services where this city is first stop
-        comoDestino: 0,  // services where this city is last stop
-        comoParada: 0,   // services where this city is intermediate stop
+        produccion: 0,
+        pasajeros:  0,
+        terminales: new Set(),
+        comoOrigen: 0,
+        comoDestino: 0,
+        comoParada: 0,
         serviciosList: []
       });
     }
     return cityMap.get(nombre);
   }
 
-  // Pass 1: production & passengers from embarque raw rows (already processed above)
-  // We need to re-iterate rows — stored in embarqueData built during main loop
+  // Pass 1: datos financieros desde _embarqueData (key = Origen del ticket)
   for(const [ciudad, data] of _embarqueData){
     const c = getOrCreateCity(ciudad);
     c.produccion += data.prod;
     c.pasajeros  += data.pax;
+    if(data.terminales) data.terminales.forEach(t => c.terminales.add(t));
   }
 
-  // Pass 2: service roles from reconstructed sequences
+  // Pass 2: roles de servicios desde secuencias reconstruidas
   for(const s of ALL_SERVICES){
     const n = s.paradas.length;
     s.paradas.forEach((ciudad, idx) => {
@@ -970,6 +972,7 @@ function processRows(rows){
 
   ALL_CITIES = Array.from(cityMap.values()).map(c => ({
     ...c,
+    terminales: [...c.terminales],
     servicios: c.serviciosList.length,
     serviciosList: c.serviciosList.sort((a,b) => b.produccion - a.produccion)
   })).sort((a,b) => b.produccion - a.produccion);
@@ -1515,18 +1518,32 @@ function ciuApply(){
 
   ciuFiltered = ALL_CITIES.filter(c => {
     if(q && !c.nombre.toLowerCase().includes(q)) return false;
-    if(tipo === 'origen' && c.comoOrigen === 0) return false;
-    if(tipo === 'destino' && c.comoDestino === 0) return false;
-    if(tipo === 'parada' && c.comoParada === 0) return false;
+    if(tipo === 'con_embarque'  && c.produccion === 0) return false;
+    if(tipo === 'solo_destino'  && c.produccion > 0) return false;
+    if(tipo === 'origen'        && c.comoOrigen === 0) return false;
+    if(tipo === 'destino'       && c.comoDestino === 0) return false;
     return true;
   });
 
-  if(sb === 'produccion')  ciuFiltered.sort((a,b) => b.produccion - a.produccion);
-  else if(sb === 'servicios') ciuFiltered.sort((a,b) => b.servicios - a.servicios);
-  else if(sb === 'pasajeros') ciuFiltered.sort((a,b) => b.pasajeros - a.pasajeros);
-  else ciuFiltered.sort((a,b) => a.nombre.localeCompare(b.nombre));
+  // Default sort: cities with prod first, then by chosen column
+  const hasProd = ciuFiltered.filter(c => c.produccion > 0);
+  const noProd  = ciuFiltered.filter(c => c.produccion === 0);
 
-  MAX_CIU_PROD = ciuFiltered.length ? ciuFiltered[0].produccion : 1;
+  const sortFn = sb === 'produccion'  ? (a,b) => b.produccion - a.produccion
+              : sb === 'servicios'  ? (a,b) => b.servicios  - a.servicios
+              : sb === 'pasajeros'  ? (a,b) => b.pasajeros  - a.pasajeros
+              :                      (a,b) => a.nombre.localeCompare(b.nombre);
+
+  // Always sort within each group; 0-prod cities go to bottom unless filter is 'solo_destino'
+  if(tipo === 'todas'){
+    hasProd.sort(sortFn);
+    noProd.sort((a,b) => a.nombre.localeCompare(b.nombre));
+    ciuFiltered = [...hasProd, ...noProd];
+  } else {
+    ciuFiltered.sort(sortFn);
+  }
+
+  MAX_CIU_PROD = hasProd.length ? hasProd[0].produccion : 1;
   ciuPage = 1;
   ciuRender();
 }
@@ -1541,8 +1558,9 @@ function ciuRender(){
   document.getElementById('ciu-count').textContent = total + ' ciudad' + (total !== 1 ? 'es' : '');
 
   slice.forEach((c, i) => {
-    const pct = Math.round(c.produccion / MAX_CIU_PROD * 100);
-    const pctTotal = TOTAL_PROD ? ((c.produccion / TOTAL_PROD * 100).toFixed(1) + '%') : '—';
+    const pct = MAX_CIU_PROD > 0 ? Math.round(c.produccion / MAX_CIU_PROD * 100) : 0;
+    const pctTotal = c.produccion > 0 && TOTAL_PROD
+      ? ((c.produccion / TOTAL_PROD * 100).toFixed(1) + '%') : c.produccion === 0 ? '—' : '—';
     const tr = document.createElement('tr');
 
     // Role badges
@@ -1561,7 +1579,9 @@ function ciuRender(){
       <td class="num">${c.comoDestino}</td>
       <td class="num">${c.comoParada}</td>
       <td class="num">${c.pasajeros.toLocaleString('es-CL')}</td>
-      <td class="num" style="color:var(--ink);font-weight:700">${fmtM(c.produccion)}</td>
+      <td class="num" style="color:${c.produccion>0?'var(--ink)':'var(--ink3)'};font-weight:700">
+        ${c.produccion>0 ? fmtM(c.produccion) : '<span title="Solo aparece como destino en rutas — nadie embarca aquí" style="font-size:11px;color:var(--ink3);font-style:italic">solo destino</span>'}
+      </td>
       <td>
         <div class="bar-wrap">
           <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:var(--accent)"></div></div>
