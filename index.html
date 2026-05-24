@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Portal de Producción · Análisis Integral</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -20,6 +21,16 @@
   --teal:#0891b2;--teal-dim:#ecfeff;
   --r:8px;--r2:14px;
   font-family:'Inter',system-ui,sans-serif;
+}
+body.dark{
+  --ink:#e8eaf6;--ink2:#b0b3c8;--ink3:#6b7094;
+  --bg:#0f1117;--surface:#1a1d2e;--surface2:#141624;
+  --border:#252840;--border2:#2e3150;
+  --accent:#4f6fff;--accent-dim:#1a2050;
+  --green:#10b981;--green-dim:#052e1c;
+  --amber:#f59e0b;--amber-dim:#2d1f02;
+  --red:#f87171;--red-dim:#2d0a0a;
+  --teal:#22d3ee;--teal-dim:#042830;
 }
 body{background:var(--bg);color:var(--ink);min-height:100vh}
 
@@ -275,7 +286,7 @@ tbody td{padding:9px 12px;vertical-align:middle}
 <!-- ── UPLOAD SCREEN ── -->
 <div id="upload-screen">
   <h1>Producción de<br><em>Servicios</em></h1>
-  <p>Cargá uno o ambos reportes CSV. El portal abre en cuanto cargues el primero.</p>
+  <p>Cargá ambos reportes CSV. El portal se habilita cuando ambos estén listos.</p>
 
   <div style="display:flex;flex-direction:column;gap:12px;width:100%;max-width:520px">
 
@@ -296,7 +307,7 @@ tbody td{padding:9px 12px;vertical-align:middle}
     <!-- File 2: Recaudacion por servicio -->
     <div>
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);margin-bottom:6px">
-        ✅ Archivo 2 — Recaudación por servicio <span style="color:var(--ink3)">(opcional)</span>
+        ✅ Archivo 2 — Recaudación por servicio <span style="color:var(--red)">*obligatorio</span>
       </div>
       <label class="drop-zone" id="drop-zone-2">
         <span class="drop-icon" id="dz2-icon">📂</span>
@@ -314,8 +325,9 @@ tbody td{padding:9px 12px;vertical-align:middle}
     </div>
 
     <!-- Launch button (shows after file1 is ready) -->
+    <div id="both-ready-msg" style="display:none;font-size:13px;color:var(--amber);background:var(--amber-dim);border:1px solid #f59e0b;border-radius:var(--r);padding:10px 16px;max-width:520px;text-align:center"></div>
     <button id="launch-btn" style="display:none;background:var(--accent);color:#fff;border:none;border-radius:var(--r);padding:12px 24px;font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-      Abrir portal →
+      Abrir portal completo →
     </button>
   </div>
 </div>
@@ -340,7 +352,7 @@ tbody td{padding:9px 12px;vertical-align:middle}
     <div class="kpi-cell"><div class="kpi-label">Sucursales</div><div class="kpi-val" id="kpi-br">—</div><div class="kpi-sub">Puntos de venta</div></div>
     <div class="kpi-cell"><div class="kpi-label">Pasajes vendidos</div><div class="kpi-val" id="kpi-pax">—</div><div class="kpi-sub">Asientos (vendidos)</div></div>
     <div class="kpi-cell"><div class="kpi-label">Tarifa promedio</div><div class="kpi-val green" id="kpi-avg">—</div><div class="kpi-sub">Por asiento</div></div>
-    <div class="kpi-cell"><div class="kpi-label">Cancelados</div><div class="kpi-val" id="kpi-cancel">—</div><div class="kpi-sub">% del total</div></div>
+    <div class="kpi-cell"><div class="kpi-label">Cancelados</div><div class="kpi-val" id="kpi-cancel">—</div><div class="kpi-sub">% · Devol: <span id="kpi-devol" style="color:var(--red);font-weight:700">—</span></div></div>
   </div>
 
   <div class="tabs-bar">
@@ -372,6 +384,10 @@ tbody td{padding:9px 12px;vertical-align:middle}
         <option value="20000000">+ $20M</option>
         <option value="40000000">+ $40M</option>
       </select>
+      <select id="svc-city-filter">
+        <option value="">Todas las ciudades</option>
+      </select>
+      <button class="btn" id="btn-comparar" title="Comparar servicios seleccionados">⚖ Comparar</button>
       <button class="btn" id="dl-svc-xlsx">↓ Excel</button>
       <button class="btn" id="dl-svc-csv">↓ CSV</button>
       <span class="count-tag" id="svc-count"></span>
@@ -379,6 +395,7 @@ tbody td{padding:9px 12px;vertical-align:middle}
     <div class="table-wrap">
       <table>
         <thead><tr>
+          <th style="width:32px"><input type="checkbox" id="svc-check-all" title="Seleccionar todos"></th>
           <th data-col="nombre">Servicio</th>
           <th data-col="secuencia">Ruta completa</th>
           <th data-col="produccion" class="sorted" style="text-align:right">Producción ↓</th>
@@ -464,24 +481,10 @@ tbody td{padding:9px 12px;vertical-align:middle}
   <!-- TAB: CUMPLIMIENTO -->
   <div id="tab-cumplimiento" style="display:none">
 
-    <!-- Upload zone for second file -->
-    <div id="cum-upload-zone" style="padding:32px;text-align:center;border-bottom:1px solid var(--border);background:var(--surface2)">
-      <p style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:6px">📂 Cargar Recaudación por Servicio</p>
-      <p style="font-size:12px;color:var(--ink3);margin-bottom:16px">CSV con columnas: Fecha de Viaje · Servicio · Estado · Patente · Conductor1 · Recaudación en Sucursal</p>
-      <label style="display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;padding:10px 20px;border-radius:var(--r);cursor:pointer;font-size:13px;font-weight:600;transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-        ↑ Seleccionar CSV de recaudación
-        <input type="file" id="cum-file-input" accept=".csv" style="display:none"/>
-      </label>
-      <div id="cum-progress-wrap" style="display:none;margin-top:16px;max-width:400px;margin-left:auto;margin-right:auto">
-        <div style="height:5px;background:var(--border);border-radius:100px;overflow:hidden">
-          <div id="cum-progress-fill" style="height:5px;background:var(--accent);border-radius:100px;width:0;transition:width .1s"></div>
-        </div>
-        <div id="cum-status" style="font-size:12px;color:var(--ink3);margin-top:8px"></div>
-      </div>
-    </div>
+    <div id="cum-upload-zone" style="display:none"><input type="file" id="cum-file-input" style="display:none"/></div>
 
     <!-- KPIs de cumplimiento -->
-    <div id="cum-content" style="display:none">
+    <div id="cum-content">
       <div class="kpi-row" id="cum-kpi-row" style="grid-template-columns:repeat(7,1fr)">
         <div class="kpi-cell"><div class="kpi-label">Total viajes</div><div class="kpi-val" id="ck-total">—</div><div class="kpi-sub">En el período</div></div>
         <div class="kpi-cell"><div class="kpi-label">✅ Recaudados</div><div class="kpi-val" id="ck-rec" style="color:var(--green)">—</div><div class="kpi-sub">Con tripulación y recaudación</div></div>
@@ -853,8 +856,9 @@ function processRows(rows){
     const destino = (r['Destino'] || '').trim();
     const embarqueRaw = (r['Punto de Embarque'] || '').trim();
 
+    const reembolso = parseFloat(String(r['Monto Reembolso']||'0').replace(/[^0-9.-]/g,'')) || 0;
     const isCanceled = estado.toLowerCase().includes('cancel');
-    if(isCanceled) totalCancel++;
+    if(isCanceled){ totalCancel++; }
 
     // Collect OD pairs for ALL rows (including cancelled) for sequence inference
     if(origen && destino){
@@ -880,7 +884,7 @@ function processRows(rows){
 
       if(!svcMap.has(nombre)){
         svcMap.set(nombre, {
-          nombre, produccion:0, asientos:0,
+          nombre, produccion:0, asientos:0, devoluciones:0,
           sucursales: new Map(),
           primerOrigen: origen, ultimoDestino: destino
         });
@@ -888,6 +892,7 @@ function processRows(rows){
       const s = svcMap.get(nombre);
       s.produccion += monto;
       s.asientos++;
+      if(isCanceled && reembolso) s.devoluciones = (s.devoluciones||0) + reembolso;
       s.sucursales.set(sucursal, (s.sucursales.get(sucursal)||0) + monto);
 
       if(!brMap.has(sucursal)) brMap.set(sucursal, { sucursal, total:0, servicios: new Map() });
@@ -1049,7 +1054,7 @@ function handleFile1(file){
         _pendingStats = stats;
         markDropzone(1, true, file.name);
         document.getElementById('dz1-status').textContent = `✓ ${rows.length.toLocaleString('es-CL')} registros`;
-        document.getElementById('launch-btn').style.display = 'block';
+        checkBothReady();
         // If portal already open, refresh data
         if(document.getElementById('app').style.display !== 'none') launchApp(stats);
       } catch(err){
@@ -1082,13 +1087,14 @@ function handleFile2(file){
         _file2Ready = true;
         markDropzone(2, true, file.name);
         document.getElementById('dz2-status').textContent = `✓ ${rows.length.toLocaleString('es-CL')} registros`;
+        checkBothReady();
 
         // If portal already open, update cumplimiento tab
         if(document.getElementById('app').style.display !== 'none'){
           mountCumplimientoData(byDate, allFechas);
-        } else if(_file1Ready){
+        } else if(_file1Ready && _file2Ready){
           // Both ready, auto-launch
-          document.getElementById('launch-btn').click();
+          setTimeout(() => document.getElementById('launch-btn').click(), 300);
         }
       } catch(err){
         markDropzone(2, false, file.name);
@@ -1110,8 +1116,26 @@ document.getElementById('cum-file-input').addEventListener('change', e => {
 
 // ── Launch button ─────────────────────────────────────────────
 document.getElementById('launch-btn').addEventListener('click', () => {
-  if(_pendingStats) launchApp(_pendingStats);
+  if(_pendingStats && _file2Ready) launchApp(_pendingStats);
 });
+
+// Check both files ready and update button state
+function checkBothReady(){
+  const btn = document.getElementById('launch-btn');
+  const msg = document.getElementById('both-ready-msg');
+  if(_file1Ready && _file2Ready){
+    btn.style.display = 'block';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    if(msg) msg.style.display = 'none';
+  } else if(_file1Ready || _file2Ready){
+    btn.style.display = 'none';
+    if(msg){
+      msg.style.display = 'block';
+      msg.textContent = _file1Ready ? '⏳ Falta cargar el archivo de recaudación (Archivo 2)' : '⏳ Falta cargar el reporte de producción (Archivo 1)';
+    }
+  }
+}
 
 function mountCumplimientoData(byDate, allFechas){
   document.getElementById('cum-upload-zone').style.display = 'none';
@@ -1130,13 +1154,10 @@ function launchApp(stats){
   brApply();
   ciuApply();
   buildInsights();
-  // If file2 was already parsed, mount cumplimiento immediately
+  // File 2 is now always required — mount cumplimiento
   if(_file2Ready && ALL_CUMPLIMIENTO.length){
-    // Re-trigger mount (byDate/allFechas no longer needed — data is in ALL_CUMPLIMIENTO)
     document.getElementById('cum-upload-zone').style.display = 'none';
-    document.getElementById('cum-content').style.display = 'block';
     buildCumKPIs();
-    // Rebuild heatmap from ALL_CUMPLIMIENTO
     rebuildHeatmapFromData();
     buildCumFechaSelectFromData();
     cumApply();
@@ -1181,6 +1202,9 @@ function resetApp(){
   document.getElementById('file-input').value = '';
   document.getElementById('file-input-2').value = '';
   document.getElementById('launch-btn').style.display = 'none';
+  const brmsg = document.getElementById('both-ready-msg');
+  if(brmsg) brmsg.style.display = 'none';
+  selectedServices.clear();
   // Reset dropzone 1
   document.getElementById('dz1-icon').textContent = '📂';
   document.getElementById('dz1-label').textContent = 'Reporte_Producción_de_Servicios.csv';
@@ -1220,6 +1244,19 @@ function updateKPIs(stats){
   document.getElementById('kpi-avg').textContent = fmt(avg);
   const pctCancel = FILE_ROWS ? Math.round(stats.totalCancel / FILE_ROWS * 100) : 0;
   document.getElementById('kpi-cancel').textContent = pctCancel + '%';
+  const totalDevol = ALL_SERVICES.reduce((s,sv)=>s+(sv.devoluciones||0),0);
+  document.getElementById('kpi-devol').textContent = fmtM(totalDevol);
+
+  // Populate city filter in servicios tab
+  const citySelect = document.getElementById('svc-city-filter');
+  citySelect.innerHTML = '<option value="">Todas las ciudades</option>';
+  const cityNames = [...ALL_CITIES].sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  cityNames.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.nombre;
+    opt.textContent = c.nombre;
+    citySelect.appendChild(opt);
+  });
 }
 
 // ── TABS ─────────────────────────────────────────────────────
@@ -1244,11 +1281,14 @@ function svcApply(){
   const q = document.getElementById('svc-search').value.toLowerCase();
   const minP = +document.getElementById('svc-minprod').value;
   const sb = document.getElementById('svc-sort').value;
+  const cityF = document.getElementById('svc-city-filter').value;
 
-  svcFiltered = ALL_SERVICES.filter(s =>
-    (!q || s.nombre.toLowerCase().includes(q) || (s.secuencia||'').toLowerCase().includes(q)) &&
-    s.produccion >= minP
-  );
+  svcFiltered = ALL_SERVICES.filter(s => {
+    if(q && !s.nombre.toLowerCase().includes(q) && !(s.secuencia||'').toLowerCase().includes(q)) return false;
+    if(s.produccion < minP) return false;
+    if(cityF && !(s.paradas||[]).some(p => p === cityF)) return false;
+    return true;
+  });
 
   if(sb === 'produccion') svcFiltered.sort((a,b) => b.produccion - a.produccion);
   else if(sb === 'asientos') svcFiltered.sort((a,b) => b.asientos - a.asientos);
@@ -1275,6 +1315,7 @@ function svcRender(){
     const pctTotal = TOTAL_PROD ? ((s.produccion / TOTAL_PROD * 100).toFixed(1) + '%') : '—';
     const paradas = s.paradas || [];
     const nStops = paradas.length;
+    const isSelected = selectedServices.has(s.nombre);
     // Compact display: show first → ... → last with stop count badge
     let seqDisplay = '—';
     if(nStops === 1) seqDisplay = esc(paradas[0]);
@@ -1284,7 +1325,11 @@ function svcRender(){
       `<span style="font-weight:600;color:var(--green)">${esc(paradas[nStops-1])}</span>`;
     const stopsBadge = nStops > 0 ? `<span style="margin-left:6px;font-size:9px;background:var(--surface2);border:1px solid var(--border);border-radius:100px;padding:1px 6px;color:var(--ink3);white-space:nowrap">${nStops} parada${nStops!==1?'s':''}</span>` : '';
     const tr = document.createElement('tr');
+    if(isSelected) tr.style.background = 'var(--accent-dim)';
     tr.innerHTML = `
+      <td style="text-align:center" onclick="event.stopPropagation()">
+        <input type="checkbox" ${isSelected?'checked':''} onchange="toggleServiceSelection('${s.nombre.replace(/'/g,"\'")}', this.checked)" style="cursor:pointer">
+      </td>
       <td><div class="svc-name">${start+i+1}. ${esc(s.nombre)}</div></td>
       <td title="${esc(s.secuencia)}">
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
@@ -1306,6 +1351,7 @@ function svcRender(){
 document.getElementById('svc-search').addEventListener('input', svcApply);
 document.getElementById('svc-sort').addEventListener('change', svcApply);
 document.getElementById('svc-minprod').addEventListener('change', svcApply);
+document.getElementById('svc-city-filter').addEventListener('change', svcApply);
 document.querySelectorAll('thead th[data-col]').forEach(th => {
   th.addEventListener('click', () => {
     const col = th.dataset.col;
@@ -1592,7 +1638,10 @@ function openCiuPanel(c){
       div.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:8px">
           <span style="font-size:12px;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(s.nombre)}">${i+1}. ${esc(s.nombre)}</span>
-          <span style="font-size:11px;font-weight:700;color:var(--teal);white-space:nowrap">${fmtM(s.produccion)}</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:11px;font-weight:700;color:var(--teal);white-space:nowrap">${fmtM(s.produccion)}</span>
+            <button onclick="navigateToService('${s.nombre.replace(/'/g,"\'")}');event.stopPropagation()" style="font-size:10px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink3);cursor:pointer;white-space:nowrap">Ver →</button>
+          </div>
         </div>
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin-top:2px">${pillsHTML}</div>
         <div style="width:100%;background:var(--border);border-radius:100px;height:3px;margin-top:2px">
@@ -2356,6 +2405,166 @@ function buildInsightCard(id, title, sub, rows){
   </div>`;
 }
 
+// ── SELECTED SERVICES (comparador) ─────────────────────────────
+const selectedServices = new Set();
+
+function toggleServiceSelection(nombre, checked){
+  if(checked){
+    if(selectedServices.size >= 4){ alert('Máximo 4 servicios para comparar'); return; }
+    selectedServices.add(nombre);
+  } else {
+    selectedServices.delete(nombre);
+  }
+  // Update compare button
+  const btn = document.getElementById('btn-comparar');
+  btn.textContent = selectedServices.size > 0 ? `⚖ Comparar (${selectedServices.size})` : '⚖ Comparar';
+  btn.style.background = selectedServices.size > 0 ? 'var(--accent)' : '';
+  btn.style.color = selectedServices.size > 0 ? '#fff' : '';
+  btn.style.borderColor = selectedServices.size > 0 ? 'var(--accent)' : '';
+  // Re-render to update row highlight without full filter reset
+  svcRender();
+}
+
+// Select-all checkbox
+document.getElementById('svc-check-all').addEventListener('change', function(){
+  if(this.checked){
+    svcFiltered.slice(0,4).forEach(s => selectedServices.add(s.nombre));
+  } else {
+    svcFiltered.forEach(s => selectedServices.delete(s.nombre));
+  }
+  const btn = document.getElementById('btn-comparar');
+  btn.textContent = selectedServices.size > 0 ? `⚖ Comparar (${selectedServices.size})` : '⚖ Comparar';
+  btn.style.background = selectedServices.size > 0 ? 'var(--accent)' : '';
+  btn.style.color = selectedServices.size > 0 ? '#fff' : '';
+  btn.style.borderColor = selectedServices.size > 0 ? 'var(--accent)' : '';
+  svcRender();
+});
+
+document.getElementById('btn-comparar').addEventListener('click', openComparador);
+
+function openComparador(){
+  if(selectedServices.size < 2){
+    alert('Seleccioná al menos 2 servicios con el checkbox para comparar');
+    return;
+  }
+  const svcs = [...selectedServices].map(n => ALL_SERVICES.find(s=>s.nombre===n)).filter(Boolean);
+  const body = document.getElementById('comp-body');
+  
+  // Build comparison table
+  const metrics = [
+    { label: 'Producción total', fn: s => fmtM(s.produccion), color: 'var(--accent)' },
+    { label: '$/Asiento promedio', fn: s => s.asientos ? fmt(Math.round(s.produccion/s.asientos)) : '—', color: 'var(--green)' },
+    { label: 'Asientos vendidos', fn: s => s.asientos.toLocaleString('es-CL'), color: '' },
+    { label: 'Sucursales de venta', fn: s => s.sucursales.length, color: '' },
+    { label: 'Paradas en ruta', fn: s => (s.paradas||[]).length, color: '' },
+    { label: 'Devoluciones', fn: s => fmtM(s.devoluciones||0), color: 'var(--red)' },
+    { label: '% del total', fn: s => TOTAL_PROD ? (s.produccion/TOTAL_PROD*100).toFixed(2)+'%' : '—', color: '' },
+  ];
+
+  // Find best value per numeric metric for highlighting
+  const getBestIdx = (svcs, fn) => {
+    const vals = svcs.map(s => parseFloat(String(fn(s)).replace(/[^0-9.]/g,''))||0);
+    const max = Math.max(...vals);
+    return vals.indexOf(max);
+  };
+
+  let html = `<div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border)">
+          <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);width:160px">Métrica</th>
+          ${svcs.map((s,i)=>`<th style="padding:10px 12px;text-align:right;font-weight:700;color:var(--ink)">${esc(s.nombre)}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>`;
+
+  metrics.forEach(m => {
+    const bestIdx = getBestIdx(svcs, m.fn);
+    html += `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:9px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--ink3)">${m.label}</td>
+      ${svcs.map((s,i)=>{
+        const val = m.fn(s);
+        const isBest = i === bestIdx && svcs.length > 1;
+        return `<td style="padding:9px 12px;text-align:right;font-weight:${isBest?'800':'600'};color:${isBest?'var(--green)':m.color||'var(--ink)'};${isBest?'background:var(--green-dim);border-radius:4px;':''}">${val}${isBest?' ★':''}</td>`;
+      }).join('')}
+    </tr>`;
+  });
+
+  // Route row
+  html += `<tr style="border-bottom:1px solid var(--border)">
+    <td style="padding:9px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--ink3)">Ruta</td>
+    ${svcs.map(s=>`<td style="padding:9px 12px;font-size:11px;color:var(--ink2)">${(s.paradas||[]).join(' › ')}</td>`).join('')}
+  </tr>`;
+
+  // Top sucursal
+  html += `<tr>
+    <td style="padding:9px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--ink3)">Mayor sucursal</td>
+    ${svcs.map(s=>{ const top = s.sucursales[0]; return `<td style="padding:9px 12px;font-size:12px;color:var(--teal)">${top?esc(top[0])+' · '+fmtM(top[1]):'—'}</td>`; }).join('')}
+  </tr>`;
+
+  html += `</tbody></table></div>`;
+
+  // Mini bar chart comparison
+  const maxProd = Math.max(...svcs.map(s=>s.produccion));
+  html += `<div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border)">
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:12px">Producción relativa</div>
+    ${svcs.map((s,i)=>{
+      const pct = Math.round(s.produccion/maxProd*100);
+      const colors = ['#1a3cff','#0891b2','#0a7c5c','#b45309'];
+      return `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span style="font-weight:600">${esc(s.nombre)}</span>
+          <span style="font-weight:700;color:${colors[i]}">${fmtM(s.produccion)}</span>
+        </div>
+        <div style="background:var(--border);border-radius:100px;height:8px">
+          <div style="width:${pct}%;height:8px;border-radius:100px;background:${colors[i]};transition:width .5s"></div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  body.innerHTML = html;
+  document.getElementById('comp-overlay').style.display = 'block';
+  document.getElementById('comp-modal').style.display = 'block';
+}
+
+function closeComparador(){
+  document.getElementById('comp-overlay').style.display = 'none';
+  document.getElementById('comp-modal').style.display = 'none';
+}
+
+// ── DARK MODE ─────────────────────────────────────────────────
+function toggleDark(){
+  const isDark = document.body.classList.toggle('dark');
+  document.getElementById('dark-toggle').textContent = isDark ? '☀️' : '🌙';
+  localStorage.setItem('darkMode', isDark ? '1' : '0');
+  // Redraw charts with new colors
+  if(chartsDrawn){
+    chartsDrawn = false;
+    ['chart-top20','chart-branches','chart-dist','chart-conc',
+     'chart-ciu-prod','chart-ciu-pax','chart-ciu-svc','chart-ciu-rol'].forEach(id => {
+      const c = Chart.getChart(id); if(c) c.destroy();
+    });
+    renderCharts();
+  }
+}
+// Restore dark mode preference
+if(localStorage.getItem('darkMode') === '1'){
+  document.body.classList.add('dark');
+  document.getElementById('dark-toggle').textContent = '☀️';
+}
+
+// ── CROSS-ENTITY NAVIGATION ─────────────────────────────────────
+// From city panel: click service → open service panel
+function navigateToService(nombre){
+  // Close city panel first
+  document.getElementById('ciu-overlay').classList.remove('open');
+  document.getElementById('ciu-panel').classList.remove('open');
+  // Find and open
+  const s = ALL_SERVICES.find(sv => sv.nombre === nombre);
+  if(s) setTimeout(() => openPanel(s), 200);
+}
+
 // ── DOWNLOADS ─────────────────────────────────────────────────
 document.getElementById('dl-svc-csv').onclick = () => {
   const rows = [['#','Servicio','Secuencia','Produccion','Asientos','Tarifa_Prom','N_Sucursales']];
@@ -2369,30 +2578,69 @@ document.getElementById('dl-svc-csv').onclick = () => {
   a.download = 'servicios.csv'; a.click();
 };
 document.getElementById('dl-svc-xlsx').onclick = () => {
-  // minimal xlsx-like CSV download labeled as xlsx
-  const rows = [['#','Servicio','Secuencia','Produccion','Asientos','Tarifa_Prom','N_Sucursales']];
-  svcFiltered.forEach((s,i) => {
-    rows.push([i+1, s.nombre, s.secuencia||'', s.produccion, s.asientos,
-      s.asientos ? Math.round(s.produccion/s.asientos) : 0, s.sucursales.length]);
-    s.sucursales.forEach(([suc,val]) => rows.push(['','','','',suc,val,'','']));
-  });
-  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv], {type:'text/csv'}));
-  a.download = 'servicios_detalle.csv'; a.click();
-};
-document.getElementById('dl-br-xlsx').onclick = () => {
-  const rows = [['Sucursal','Total','N_Servicios','Servicio','Produccion_en_Suc','Pct_Sucursal']];
-  brFiltered.forEach(b => {
-    b.servicios.forEach(([svc,val]) => {
-      rows.push([b.sucursal, b.total, b.servicios.length, svc, val, Math.round(val/b.total*100)+'%']);
+  const wb = XLSX.utils.book_new();
+  // Sheet 1: services summary
+  const rows1 = svcFiltered.map((s,i) => ({
+    '#': i+1,
+    'Servicio': s.nombre,
+    'Ruta': (s.paradas||[]).join(' → '),
+    'Produccion': s.produccion,
+    'Asientos': s.asientos,
+    'Tarifa_Promedio': s.asientos ? Math.round(s.produccion/s.asientos) : 0,
+    'Devoluciones': s.devoluciones||0,
+    'N_Sucursales': s.sucursales.length,
+    'Pct_del_Total': TOTAL_PROD ? +((s.produccion/TOTAL_PROD*100).toFixed(2)) : 0
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows1), 'Servicios');
+  // Sheet 2: service × branch breakdown
+  const rows2 = [];
+  svcFiltered.forEach(s => {
+    s.sucursales.forEach(([suc,val]) => {
+      rows2.push({ Servicio: s.nombre, Sucursal: suc, Produccion: val,
+        Pct_del_Servicio: +((val/s.produccion*100).toFixed(1)) });
     });
   });
-  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv], {type:'text/csv'}));
-  a.download = 'sucursales_detalle.csv'; a.click();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows2), 'Por_Sucursal');
+  XLSX.writeFile(wb, 'servicios_produccion.xlsx');
+};
+document.getElementById('dl-br-xlsx').onclick = () => {
+  const wb = XLSX.utils.book_new();
+  const rows1 = brFiltered.map((b,i) => ({
+    '#': i+1, 'Sucursal': b.sucursal, 'Produccion_Total': b.total,
+    'N_Servicios': b.servicios.length,
+    'Pct_del_Total': TOTAL_PROD ? +((b.total/TOTAL_PROD*100).toFixed(2)) : 0
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows1), 'Sucursales');
+  const rows2 = [];
+  brFiltered.forEach(b => {
+    b.servicios.forEach(([svc,val]) => {
+      const found = ALL_SERVICES.find(s=>s.nombre===svc);
+      rows2.push({ Sucursal: b.sucursal, Servicio: svc,
+        Ruta: found ? (found.paradas||[]).join(' → ') : '',
+        Produccion: val,
+        Pct_de_Sucursal: +((val/b.total*100).toFixed(1)) });
+    });
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows2), 'Detalle_Servicios');
+  XLSX.writeFile(wb, 'sucursales_detalle.xlsx');
 };
 </script>
+
+<!-- ── COMPARADOR MODAL ── -->
+<div id="comp-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60;backdrop-filter:blur(3px)" onclick="closeComparador()"></div>
+<div id="comp-modal" style="display:none;position:fixed;top:5vh;left:50%;transform:translateX(-50%);width:min(95vw,900px);max-height:90vh;overflow-y:auto;background:var(--surface);border-radius:var(--r2);z-index:61;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+  <div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--surface)">
+    <div>
+      <div style="font-size:16px;font-weight:700">⚖ Comparador de Servicios</div>
+      <div style="font-size:12px;color:var(--ink3);margin-top:2px">Seleccioná hasta 4 servicios con el checkbox de la tabla</div>
+    </div>
+    <button onclick="closeComparador()" style="border:1px solid var(--border);border-radius:7px;background:none;cursor:pointer;width:30px;height:30px;font-size:16px;color:var(--ink3)">✕</button>
+  </div>
+  <div id="comp-body" style="padding:20px 24px"></div>
+</div>
+
+<!-- ── MODO OSCURO ── -->
+<button id="dark-toggle" title="Modo oscuro" onclick="toggleDark()" style="position:fixed;bottom:20px;right:20px;z-index:40;width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:18px;box-shadow:0 2px 12px rgba(0,0,0,.1);transition:all .2s">🌙</button>
+
 </body>
 </html>
